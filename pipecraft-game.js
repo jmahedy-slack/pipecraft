@@ -896,7 +896,23 @@
     { name: 'Joe Connolly', score: 800, color: '#36c5f0' },
     { name: 'Nasreen Khan', score: 350, color: '#9b59b6' },
   ];
-  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, feed: [] };
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, tech: 0, feed: [] };
+  const TECH = { points: 150, retry: 15 };
+  const TECH_QUESTIONS = [
+    { topic: 'Agentforce', q: 'Which Salesforce capability lets you deploy autonomous AI agents for service and sales?', options: ['Agentforce', 'Visualforce', 'Workforce'], answer: 0 },
+    { topic: 'Data Cloud', q: 'What does Data Cloud mainly help a business do?', options: ['Unify customer data in real time', 'Host static websites', 'Replace email servers'], answer: 0 },
+    { topic: 'Slack Connect', q: 'What does Slack Connect let teams do?', options: ['Work in channels with external organisations', 'Only call internal users', 'Archive old emails'], answer: 0 },
+    { topic: 'Workflow Builder', q: 'Workflow Builder in Slack is best used to…', options: ['Automate routine tasks without code', 'Design logos', 'Compile mobile apps'], answer: 0 },
+    { topic: 'Trailhead', q: 'What is Trailhead?', options: ['A free online learning platform', 'A hiking app', 'A database engine'], answer: 0 },
+    { topic: 'Einstein', q: 'In Salesforce, "Einstein" refers to…', options: ['Built-in AI and predictions', 'A physics simulator', 'The billing system'], answer: 0 },
+    { topic: 'Security', q: 'What does multi-factor authentication add to a login?', options: ['A second proof of identity', 'A longer username', 'Faster page loads'], answer: 0 },
+    { topic: 'Huddles', q: 'Slack Huddles are…', options: ['Lightweight audio/video conversations', 'Monthly invoices', 'Spreadsheet templates'], answer: 0 },
+    { topic: 'MuleSoft', q: 'MuleSoft is primarily used for…', options: ['Connecting systems through APIs', 'Editing video', 'Printing badges'], answer: 0 },
+    { topic: 'Tableau', q: 'Tableau is primarily used for…', options: ['Analytics and data visualisation', 'Sending SMS', 'Hosting domains'], answer: 0 },
+    { topic: 'APIs', q: 'What does an API let two systems do?', options: ['Exchange data in a defined way', 'Share a power supply', 'Use the same password'], answer: 0 },
+    { topic: 'Single source of truth', q: 'The main benefit of a single source of truth is…', options: ['Consistent data across every team', 'More duplicate records', 'Slower reporting'], answer: 0 },
+  ];
+  let quiz = null;
   const CULTURE = { colleague: 25, mascot: 50, cooldown: 20 };
   const CULTURE_MOMENTS = ['High five', 'Coffee catch-up', 'Celebrated a win', 'Swapped Trailhead badges', 'Shared a customer story', 'Quick huddle'];
   const SALESFORCE_ROLES = new Set(['Event Staff', 'Sales Executive', 'Solution Engineer', 'Product Manager', 'Marketing', 'Success Manager', 'Stage Host', 'Tech Support']);
@@ -909,8 +925,8 @@
   let lastQualifyAt = -Infinity;
 
   function resetProgress() {
-    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, feed: [] });
-    npcs.forEach((n) => { n.cultureReadyAt = 0; });
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, tech: 0, feed: [] });
+    npcs.forEach((n) => { n.cultureReadyAt = 0; n.askReadyAt = 0; setAnswered(n, false); });
     strideDistance = 0;
     npcs.forEach((n) => setQualified(n, false));
     lastQualifyAt = -Infinity;
@@ -969,6 +985,7 @@
     document.getElementById('deals-value').textContent = progress.opps;
     updateStepsHud();
     updateCultureHud();
+    updateTechHud();
     renderBoard();
   }
 
@@ -1018,6 +1035,64 @@
     saveProgress();
   }
 
+  function setAnswered(npc, answered) {
+    npc.answered = answered;
+    npc.tag.material.color.set(answered ? PALETTE.successGreen : 0xffffff);
+  }
+
+  /** Customers and partners from the cover lineup ask a tech question; a correct answer earns points. */
+  function askTechQuestion(npc) {
+    if (npc.answered) {
+      showToast(`${npc.def.name}: "Thanks — that really helped!"`, false);
+      return;
+    }
+    if (clock.elapsedTime < (npc.askReadyAt || 0)) {
+      showToast(`${npc.def.name} is still thinking — come back in a moment`, false);
+      return;
+    }
+    const pool = TECH_QUESTIONS.filter((q) => q !== npc.lastQuestion);
+    const question = pool[Math.floor(Math.random() * pool.length)];
+    npc.lastQuestion = question;
+    const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+    quiz = { npc, question, order };
+    Object.keys(keys).forEach((k) => { keys[k] = false; });
+    exitPointerLock();
+    document.getElementById('quiz-who').textContent = `${npc.def.name} · ${npc.def.role}`;
+    document.getElementById('quiz-topic').textContent = question.topic;
+    document.getElementById('quiz-question').textContent = question.q;
+    document.querySelectorAll('#quiz-options button').forEach((btn, i) => {
+      btn.textContent = `${i + 1}  ${question.options[order[i]]}`;
+      btn.disabled = false;
+    });
+    document.getElementById('quiz').classList.remove('hidden');
+  }
+
+  function answerTechQuestion(choice) {
+    if (!quiz) return;
+    const { npc, question, order } = quiz;
+    quiz = null;
+    document.getElementById('quiz').classList.add('hidden');
+    if (choice < 0) return;
+    if (order[choice] === question.answer) {
+      setAnswered(npc, true);
+      progress.tech += 1;
+      progress.score += TECH.points;
+      npc.starTimer = 2.4;
+      showToast(`🧠 CORRECT! ${question.topic} · +${TECH.points}`);
+      postToBoard(`<b>Ash</b> answered <b>${npc.def.name}</b>'s question on <b>${question.topic}</b> ✅ · +${TECH.points}`);
+      updateScoreHud();
+      renderBoard(true);
+    } else {
+      npc.askReadyAt = clock.elapsedTime + TECH.retry;
+      showToast(`Not quite — it's "${question.options[question.answer]}"`, false);
+    }
+    saveProgress();
+  }
+
+  function updateTechHud() {
+    document.getElementById('tech-value').textContent = progress.tech;
+  }
+
   function updateCultureHud() {
     document.getElementById('culture-value').textContent = progress.culture.toLocaleString('en-GB');
   }
@@ -1045,6 +1120,10 @@
     }
     if (best.colleague) {
       interactWithColleague(best);
+      return;
+    }
+    if (best.def.asks) {
+      askTechQuestion(best);
       return;
     }
     if (best.qualified) {
@@ -1099,7 +1178,8 @@
     try {
       const { x, y, z, yaw, pitch } = player;
       const qualified = npcs.filter((n) => n.qualified).map((n) => n.index);
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId, progress, qualified }));
+      const answered = npcs.filter((n) => n.answered).map((n) => n.index);
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId, progress, qualified, answered }));
     } catch (_) { /* storage blocked in sandboxed previews */ }
   }
 
@@ -1376,6 +1456,18 @@
     { name: 'Ben', role: 'World Tour Team', team: true, sprite: 'techCustomer', at: [46, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
     { name: 'Elvige', role: 'World Tour Team', team: true, sprite: 'healthcare', at: [55, 4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
     { name: 'Ollie', role: 'World Tour Team', team: true, sprite: 'finServ', at: [64, -3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    // Customers & partners from the cover lineup: they ask a tech question instead of being badge-scanned.
+    { name: 'Cassie', role: 'Retail Customer', asks: true, sprite: 'luRetail', at: [-47, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'David', role: 'Financial Services Client', asks: true, sprite: 'luFinServ', at: [-36, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Colm', role: 'Manufacturing Client', asks: true, sprite: 'luManufacturing', at: [-40, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Gabriela', role: 'Healthcare Client', asks: true, sprite: 'luHealthcare', at: [-4, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Graham', role: 'Public Sector Client', asks: true, sprite: 'luPublicSector', at: [6, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Arjun', role: 'Tech Customer', asks: true, sprite: 'luTechCustomer', at: [14, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Tom', role: 'Technology Partner', asks: true, sprite: 'luTechPartner', at: [24, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Claudia', role: 'Media Partner', asks: true, sprite: 'luMediaPartner', at: [33, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Sydney', role: 'Education Partner', asks: true, sprite: 'luEducationPartner', at: [42, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Marco', role: 'Consulting Partner', asks: true, sprite: 'luConsultingPartner', at: [52, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Beth', role: 'SI Partner', asks: true, sprite: 'luSiPartner', at: [44, 5], skin: C.skinMid, hair: C.hairBrown, outfit: 'suit', top: C.navy, bottom: C.charcoal, extras: [] },
   ];
 
   const ASH_DEF = {
@@ -1958,6 +2050,12 @@
     signExpo: [695, 459, 72, 26], signKeynote: [695, 484, 72, 24], signDemo: [695, 507, 72, 25],
     signLounge: [695, 531, 72, 25], signPeak: [695, 555, 72, 36],
   };
+  const LINEUP_RECTS = {
+    luRetail: [8, 486, 90, 128], luFinServ: [97, 486, 80, 128], luManufacturing: [177, 486, 79, 128],
+    luHealthcare: [255, 486, 82, 128], luPublicSector: [337, 486, 86, 128], luTechCustomer: [421, 486, 102, 128],
+    luTechPartner: [558, 486, 74, 128], luMediaPartner: [633, 486, 87, 128], luEducationPartner: [720, 486, 92, 128],
+    luConsultingPartner: [813, 486, 94, 128], luSiPartner: [908, 486, 100, 128],
+  };
   const SHEET_SCENES = {
     o2: [328, 22, 128, 116], expo: [462, 22, 126, 116], keynote: [594, 22, 126, 116],
     peak: [726, 22, 137, 116], lounge: [870, 22, 146, 116],
@@ -1974,7 +2072,10 @@
   const sheetBillboards = [];
 
   /** Cut a cell out of the sheet, flood-filling the dark navy panel background to transparent and trimming to the figure. */
-  function cutSprite(img, [sx, sy, sw, sh]) {
+  const isNavyBg = (r, g, b) => r < 34 && g < 66 && b < 100 && b > r + 22 && b >= g;
+  const isLightBg = (r, g, b) => r > 200 && g > 205 && b > 215 && Math.max(r, g, b) - Math.min(r, g, b) < 34;
+
+  function cutSprite(img, [sx, sy, sw, sh], bgTest = isNavyBg) {
     const c = document.createElement('canvas');
     c.width = sw;
     c.height = sh;
@@ -1983,10 +2084,7 @@
     const data = g.getImageData(0, 0, sw, sh);
     const p = data.data;
     const n = sw * sh;
-    const isBg = (i) => {
-      const r = p[i * 4], gr = p[i * 4 + 1], b = p[i * 4 + 2];
-      return r < 34 && gr < 66 && b < 100 && b > r + 22 && b >= gr;
-    };
+    const isBg = (i) => bgTest(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
     const bg = new Uint8Array(n);
     const stack = [];
     for (let x = 0; x < sw; x++) stack.push(x, (sh - 1) * sw + x);
@@ -2077,16 +2175,61 @@
   }
   const _tmpV = new THREE.Vector3();
 
-  function loadSheetArt() {
-    const img = new Image();
-    img.onload = () => {
-      sheetArt = {};
-      for (const [k, r] of Object.entries(SHEET_RECTS)) sheetArt[k] = cutSprite(img, r);
-      for (const [k, r] of Object.entries(SHEET_SCENES)) sheetArt[`scene_${k}`] = cutScene(img, r);
-      applySheetArt();
-    };
-    img.onerror = () => console.warn('Pipecraft: sprite sheet failed to load — keeping voxel characters');
-    img.src = SHEET_URL;
+  /** "?" speech bubble marking characters who have a tech question. */
+  function drawAskBubble() {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#102347';
+    g.beginPath();
+    g.roundRect(4, 4, 56, 44, 12);
+    g.moveTo(22, 46); g.lineTo(18, 60); g.lineTo(34, 46);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.roundRect(8, 8, 48, 36, 9);
+    g.moveTo(24, 43); g.lineTo(21, 54); g.lineTo(32, 43);
+    g.fill();
+    g.fillStyle = '#168bff';
+    g.font = '900 32px "Segoe UI", system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('?', 32, 27);
+    return c;
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  /** The cover lineup is already embedded as the title art (--hero), so reuse it rather than bundling it twice. */
+  function heroImageUrl() {
+    const hero = getComputedStyle(document.getElementById('screen-title')).getPropertyValue('--hero');
+    const m = hero.match(/url\((["']?)(.*?)\1\)/);
+    return m ? m[2] : null;
+  }
+
+  async function loadSheetArt() {
+    const heroUrl = heroImageUrl();
+    const [img, lineup] = await Promise.all([loadImage(SHEET_URL), heroUrl ? loadImage(heroUrl) : null]);
+    if (!img) {
+      console.warn('Pipecraft: sprite sheet failed to load — keeping voxel characters');
+      return;
+    }
+    sheetArt = {};
+    for (const [k, r] of Object.entries(SHEET_RECTS)) sheetArt[k] = cutSprite(img, r);
+    for (const [k, r] of Object.entries(SHEET_SCENES)) sheetArt[`scene_${k}`] = cutScene(img, r);
+    sheetArt.bulb = drawAskBubble();
+    for (const [k, r] of Object.entries(LINEUP_RECTS)) {
+      sheetArt[k] = lineup && lineup.naturalWidth === 1024 ? cutSprite(lineup, r, isLightBg) : sheetArt.techCustomer;
+    }
+    applySheetArt();
   }
 
   function applySheetArt() {
@@ -2104,6 +2247,8 @@
       npc.star = makeCutout(sheetArt.star, 0.7);
       npc.star.position.y = h + 1.45;
       npc.heart = makeCutout(sheetArt.heart, 0.5);
+      npc.bulb = makeCutout(sheetArt.bulb, 0.5);
+      npc.group.add(npc.bulb);
       npc.coinTimer = 0;
       npc.starTimer = 0;
       npc.heartTimer = 0;
@@ -2159,7 +2304,7 @@
   }
 
   function setHudIcons() {
-    [['ico-coin', 'coin'], ['ico-star', 'star'], ['ico-crystal', 'crystal'], ['ico-heart', 'heart']].forEach(([id, k]) => {
+    [['ico-coin', 'coin'], ['ico-star', 'star'], ['ico-crystal', 'crystal'], ['ico-heart', 'heart'], ['ico-bulb', 'bulb']].forEach(([id, k]) => {
       document.querySelectorAll(`.${id}`).forEach((el) => { el.src = sheetArt[k].toDataURL(); el.hidden = false; });
     });
   }
@@ -2176,7 +2321,9 @@
       const bob = npc.walking ? Math.abs(Math.sin(t * 8 + npc.phase)) * 0.09 : Math.sin(t * 2 + npc.phase) * 0.012;
       npc.cutout.position.y = bob;
       npc.cutout.rotation.z = npc.walking ? Math.sin(t * 8 + npc.phase) * 0.06 : 0;
-      npc.crystal.visible = !npc.qualified && !npc.colleague;
+      npc.crystal.visible = !npc.qualified && !npc.colleague && !npc.def.asks;
+      npc.bulb.visible = Boolean(npc.def.asks && !npc.answered);
+      npc.bulb.position.y = npc.cutout.scale.y + 0.85 + Math.sin(t * 2.4 + npc.phase) * 0.08;
       npc.crystal.position.y = npc.cutout.scale.y + 0.85 + Math.sin(t * 2.4 + npc.phase) * 0.08;
       npc.coinTimer = Math.max(0, npc.coinTimer - dt);
       npc.coin.visible = npc.coinTimer > 0;
@@ -2231,6 +2378,9 @@
   function setupUI() {
     const show = (id) => document.getElementById(id).classList.remove('hidden');
     const hide = (id) => document.getElementById(id).classList.add('hidden');
+    document.querySelectorAll('#quiz-options button').forEach((btn) => {
+      btn.addEventListener('click', () => answerTechQuestion(Number(btn.dataset.choice)));
+    });
 
     document.getElementById('btn-start').onclick = () => {
       hide('screen-title');
@@ -2316,6 +2466,10 @@
         const npc = npcs.find((n) => n.index === i);
         if (npc) setQualified(npc, true);
       });
+      (saved.answered || []).forEach((i) => {
+        const npc = npcs.find((n) => n.index === i);
+        if (npc) setAnswered(npc, true);
+      });
       updateScoreHud();
       postToBoard('<b>Pipeline Bot</b><span class="sb-app">APP</span> Welcome back, Ash — your pipeline is saved 💾', false);
       sessionStarted = true;
@@ -2357,6 +2511,12 @@
   }
 
   function handleKeyDown(code) {
+    if (quiz) {
+      const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[code];
+      if (pick !== undefined) answerTechQuestion(pick);
+      if (code === 'Escape') answerTechQuestion(-1);
+      return;
+    }
     keys[code] = true;
     setKeyButtons(code, true);
     if (code === 'Escape') {
@@ -2742,7 +2902,7 @@
 
   if (window.innerWidth < 700) document.getElementById('slack-board').classList.add('hidden');
 
-  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, move: (dt) => movePlayer(dt), view: () => viewMode, art: () => sheetArt, getState: () => state };
+  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, answer: answerTechQuestion, quiz: () => quiz, move: (dt) => movePlayer(dt), view: () => viewMode, art: () => sheetArt, getState: () => state };
 
   if (!initWebGL()) {
     console.error('WebGL init failed');

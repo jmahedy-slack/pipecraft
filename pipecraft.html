@@ -155,6 +155,25 @@
     .sb-msg .sb-time { color: #9a9b9c; font-size: 0.58rem; margin-left: 4px; }
     @media (max-width: 640px) { #slack-board { top: 108px; width: 190px; } .sb-feed { display: none; } }
 
+    #quiz {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5;
+      width: min(460px, calc(100% - 32px)); padding: 1rem 1.1rem; pointer-events: auto;
+      background: rgba(16, 35, 71, 0.97); border: 2px solid var(--scanner-cyan); border-radius: 10px;
+      box-shadow: 0 0 28px rgba(40, 217, 242, 0.4), 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+    #quiz.hidden { display: none; }
+    .quiz-who { font-size: 0.75rem; color: #8eb8dc; }
+    .quiz-topic { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--deal-gold); font-weight: 800; margin-top: 0.2rem; }
+    .quiz-question { font-size: 1.02rem; font-weight: 700; margin: 0.45rem 0 0.7rem; line-height: 1.35; }
+    #quiz-options { display: flex; flex-direction: column; gap: 0.4rem; }
+    #quiz-options button {
+      text-align: left; padding: 0.55rem 0.7rem; cursor: pointer; border-radius: 6px;
+      background: #1c3563; color: #e8f4ff; font: 600 0.88rem "Segoe UI", system-ui, sans-serif;
+      border: 1px solid rgba(22, 139, 255, 0.6); border-bottom-width: 3px;
+    }
+    #quiz-options button:hover { background: var(--scanner-cyan); color: var(--arena-navy); }
+    .quiz-hint { font-size: 0.68rem; color: #8eb8dc; margin-top: 0.6rem; text-align: center; }
+
     #opp-unlock {
       position: absolute; top: 11%; left: 50%; transform: translate(-50%, 0) scale(0.6); opacity: 0;
       min-width: 280px; max-width: calc(100% - 40px); padding: 0.9rem 1.4rem; text-align: center;
@@ -356,7 +375,7 @@
       <div class="score-value"><img class="hud-ico ico-coin" alt="" hidden /><span id="score-value">0</span></div>
       <div class="score-sub">Pipeline £<span id="pipeline-value">0</span></div>
       <div class="score-sub"><img class="hud-ico sm ico-crystal" alt="" hidden />Leads <span id="leads-value">0</span> · <img class="hud-ico sm ico-star" alt="" hidden />Opps <span id="deals-value">0</span> · Streak ×<span id="streak-value">0</span></div>
-      <div class="score-sub">👟 Steps <span id="steps-value">0</span> · <img class="hud-ico sm ico-heart" alt="" hidden />Culture <span id="culture-value">0</span></div>
+      <div class="score-sub">👟 Steps <span id="steps-value">0</span> · <img class="hud-ico sm ico-heart" alt="" hidden />Culture <span id="culture-value">0</span> · <img class="hud-ico sm ico-bulb" alt="" hidden />Tech <span id="tech-value">0</span></div>
     </div>
     <div id="slack-board" class="hud-block">
       <div class="sb-head"><span><span class="sb-hash">#</span> pipeline-scoreboard</span><span class="sb-live">● LIVE</span></div>
@@ -364,6 +383,17 @@
       <div id="sb-feed" class="sb-feed"></div>
     </div>
     <div id="score-toast" class="hidden"></div>
+    <div id="quiz" class="hidden" role="dialog" aria-label="Tech question">
+      <div class="quiz-who" id="quiz-who"></div>
+      <div class="quiz-topic">💡 Tech question · <span id="quiz-topic"></span></div>
+      <div class="quiz-question" id="quiz-question"></div>
+      <div id="quiz-options">
+        <button type="button" data-choice="0"></button>
+        <button type="button" data-choice="1"></button>
+        <button type="button" data-choice="2"></button>
+      </div>
+      <div class="quiz-hint">Press 1–3 or click · Esc to walk away · +150 for a correct answer</div>
+    </div>
     <div id="opp-unlock">
       <div class="ou-kicker">🔓 NEW OPPORTUNITY UNLOCKED</div>
       <div id="ou-title" class="ou-title"></div>
