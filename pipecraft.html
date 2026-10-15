@@ -94,6 +94,9 @@
     .score-label { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: #8eb8dc; }
     .score-value { font-size: 1.7rem; font-weight: 800; color: var(--deal-gold); line-height: 1.1; text-shadow: 0 0 10px rgba(255, 200, 87, 0.45); }
     .score-sub { font-size: 0.72rem; color: #cde4ff; }
+    .hud-ico { height: 1.5rem; vertical-align: -0.25rem; margin-right: 0.3rem; image-rendering: auto; }
+    .hud-ico.sm { height: 0.95rem; vertical-align: -0.2rem; margin: 0 0.15rem 0 0; }
+    .hud-ico[hidden] { display: none; }
 
     #controls-hud { top: 12px; left: 12px; pointer-events: auto; padding: 0.45rem 0.55rem; user-select: none; }
     .ctl-title { font-size: 0.72rem; font-weight: 700; margin-bottom: 0.3rem; }
@@ -350,9 +353,9 @@
     </div>
     <div id="pipeline-hud" class="hud-block">
       <div class="score-label">Score</div>
-      <div id="score-value" class="score-value">0</div>
+      <div class="score-value"><img class="hud-ico ico-coin" alt="" hidden /><span id="score-value">0</span></div>
       <div class="score-sub">Pipeline £<span id="pipeline-value">0</span></div>
-      <div class="score-sub">Leads <span id="leads-value">0</span> · Opps <span id="deals-value">0</span> · Streak ×<span id="streak-value">0</span></div>
+      <div class="score-sub"><img class="hud-ico sm ico-crystal" alt="" hidden />Leads <span id="leads-value">0</span> · <img class="hud-ico sm ico-star" alt="" hidden />Opps <span id="deals-value">0</span> · Streak ×<span id="streak-value">0</span></div>
     </div>
     <div id="slack-board" class="hud-block">
       <div class="sb-head"><span><span class="sb-hash">#</span> pipeline-scoreboard</span><span class="sb-live">● LIVE</span></div>

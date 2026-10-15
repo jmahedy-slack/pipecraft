@@ -20,7 +20,10 @@ try {
 } catch {
   console.warn("⚠ esbuild unavailable — bundling unminified game code");
 }
-const heroDataUri = `data:image/webp;base64,${readFileSync(join(ROOT, "assets/title-hero.webp")).toString("base64")}`;
+const webpUri = (file) => `data:image/webp;base64,${readFileSync(join(ROOT, file)).toString("base64")}`;
+const heroDataUri = webpUri("assets/title-hero.webp");
+const sheetDataUri = webpUri("assets/sprite-sheet.webp");
+game = game.replace(/(["'])assets\/sprite-sheet\.webp\1/, () => `"${sheetDataUri}"`);
 
 const bundled = html
   .replace('<script src="vendor/three.min.js"></script>', () => `<script>\n${three}\n</script>`)

@@ -568,7 +568,7 @@
     decorBox(scene, 0.3, 5.5, 0.3, 0x6b4423, post.x, 4.75, post.z);
     [['EXPO HALL  ›', '#168bff'], ['PIPELINE LOUNGE  ›', '#f04bb8'], ['KEYNOTE ARENA  ›', '#7857ff'], ['CLOUD GARDENS  ›', '#2fa36b']].forEach(([label, col], i) => {
       const tex = textPanelTexture([label], { bgTop: col, bgBottom: col, size: 44, height: 96, width: 512 });
-      panel(scene, 3.2, 0.6, tex, post.x + 1.4, 6.8 - i * 0.75, post.z + 0.2, 0, 0.4, 0.12);
+      wayfindingPanels.push(panel(scene, 3.2, 0.6, tex, post.x + 1.4, 6.8 - i * 0.75, post.z + 0.2, 0, 0.4, 0.12));
     });
   }
 
@@ -714,9 +714,14 @@
     const potMat = new THREE.MeshStandardMaterial({ color: 0xd9d4c7, roughness: 0.8 });
     const leafMat = blockMaterial(PALETTE.successGreen, 0);
     const plant = (x, z, y = 2) => {
-      decorBox(scene, 0.6, 0.6, 0.6, 0, x, y + 0.3, z, { material: potMat });
-      decorBox(scene, 0.9, 0.9, 0.9, 0, x, y + 1.05, z, { material: leafMat });
-      decorBox(scene, 0.5, 0.5, 0.5, 0, x + 0.15, y + 1.65, z - 0.1, { material: leafMat });
+      plantSpots.push({
+        x, y, z,
+        meshes: [
+          decorBox(scene, 0.6, 0.6, 0.6, 0, x, y + 0.3, z, { material: potMat }),
+          decorBox(scene, 0.9, 0.9, 0.9, 0, x, y + 1.05, z, { material: leafMat }),
+          decorBox(scene, 0.5, 0.5, 0.5, 0, x + 0.15, y + 1.65, z - 0.1, { material: leafMat }),
+        ],
+      });
     };
     [[-56, -7], [-56, 7], [-30, -7], [-30, 7], [-1, -7], [-1, 7], [26, -7], [26, 7], [59, -7], [59, 7]].forEach(([x, z]) => plant(x + 0.5, z + 0.5));
 
@@ -728,6 +733,7 @@
         decorBox(scene, 0.12, 6, 0.12, 0x2b2f38, x, 4, z, { metal: 0.4 });
         const c = cols[k++ % cols.length];
         const flag = decorBox(scene, 0.9, 2.4, 0.06, c, x + 0.5, 5.5, z, { emissive: c });
+        bannerFlags.push({ flag, x, z });
         detailAnimated.push((t) => { flag.rotation.y = Math.sin(t * 1.5 + x) * 0.15; });
       });
     }
@@ -794,6 +800,10 @@
     });
     scene.add(tuft);
   }
+
+  const wayfindingPanels = [];
+  const bannerFlags = [];
+  const plantSpots = [];
 
   function buildWorldDetails(scene) {
     buildGateSigns(scene);
@@ -881,7 +891,7 @@
   ];
   const RIVALS = [
     { name: 'Niamh May', score: 2400, color: '#e01e5a' },
-    { name: 'Zaid Imran', score: 1750, color: '#2eb67d' },
+    { name: 'Lachlan Birt', score: 1750, color: '#2eb67d' },
     { name: 'Daniela Saunders', score: 1200, color: '#ecb22e' },
     { name: 'Joe Connolly', score: 800, color: '#36c5f0' },
     { name: 'Nasreen Khan', score: 350, color: '#9b59b6' },
@@ -993,6 +1003,7 @@
       + SCORE.streakStep * Math.min(progress.streak - 1, SCORE.streakCap)
       + Math.round(best.dealValue / 1000);
     setQualified(best, true);
+    best.coinTimer = 2.5;
     progress.leads += 1;
     progress.score += points;
     progress.pipeline += best.dealValue;
@@ -1014,6 +1025,7 @@
         bonus,
       };
       showOpportunityUnlock(opp);
+      best.starTimer = 3.2;
       postToBoard(`<b>Pipeline Bot</b><span class="sb-app">APP</span> 🔓 New opportunity unlocked: <b>${opp.title}</b> · £${value.toLocaleString('en-GB')} · +${bonus} 🚀`);
     }
 
@@ -1086,6 +1098,7 @@
     buildWorldDetails(scene);
     buildNpcs(scene);
     buildAshModel(scene);
+    loadSheetArt();
 
     window.addEventListener('resize', onResize);
     setupInput(renderer.domElement);
@@ -1833,7 +1846,7 @@
 
   function updateAshModel(t) {
     if (!ashModel) return;
-    ashModel.group.visible = thirdPerson;
+    ashModel.group.visible = thirdPerson && !ashSprite;
     if (fpViewGroup) fpViewGroup.visible = !thirdPerson;
     if (!thirdPerson) return;
     const moving = keys.ArrowUp || keys.ArrowLeft || keys.ArrowDown || keys.ArrowRight;
@@ -1841,6 +1854,272 @@
     ashModel.group.rotation.y = player.yaw + Math.PI;
     animateLimbs(ashModel.parts, moving && player.onGround, t, 0, player.sprint ? 13 : 9);
     ashModel.parts.armR.rotation.x = moving ? ashModel.parts.armR.rotation.x : -0.9;
+  }
+
+  // --- Sprite sheet art: characters, collectibles, signage and scenes cut from the World Tour sheet ---
+  const SHEET_URL = 'assets/sprite-sheet.webp';
+  const SHEET_RECTS = {
+    ashFront: [3, 172, 87, 116], ashSide: [90, 172, 65, 116], ashBack: [155, 172, 80, 116], ashQuarter: [235, 172, 73, 116],
+    salesExec: [7, 328, 54, 90], solutionEng: [63, 328, 56, 90], productMgr: [120, 328, 58, 90],
+    successMgr: [182, 328, 55, 90], marketing: [245, 328, 54, 90], eventStaff: [300, 328, 56, 90],
+    retail: [372, 331, 48, 88], finServ: [422, 331, 46, 88], manufacturing: [469, 331, 44, 88],
+    healthcare: [515, 331, 48, 88], publicSector: [563, 331, 50, 88], techCustomer: [615, 331, 45, 88],
+    partner: [660, 331, 50, 88], camera: [710, 331, 52, 88], media: [765, 331, 45, 88], student: [810, 331, 45, 88],
+    cloudy: [866, 327, 78, 90], einstein: [953, 328, 63, 89],
+    crystal: [852, 457, 28, 34], coin: [893, 457, 38, 36], star: [931, 550, 36, 37],
+    flagPink: [363, 458, 40, 88], flagBlue: [402, 458, 36, 82], plant: [598, 505, 36, 50], mapKiosk: [766, 524, 68, 74],
+    signExpo: [695, 459, 72, 26], signKeynote: [695, 484, 72, 24], signDemo: [695, 507, 72, 25],
+    signLounge: [695, 531, 72, 25], signPeak: [695, 555, 72, 36],
+  };
+  const SHEET_SCENES = {
+    o2: [328, 22, 128, 116], expo: [462, 22, 126, 116], keynote: [594, 22, 126, 116],
+    peak: [726, 22, 137, 116], lounge: [870, 22, 146, 116],
+  };
+  const NPC_SPRITES = {
+    Rosa: 'eventStaff', Dev: 'student', Kemi: 'retail', Marcus: 'media', Jake: 'salesExec', Tunde: 'solutionEng',
+    Freya: 'productMgr', 'Dr. Ade': 'healthcare', Helen: 'publicSector', Leo: 'camera', Sam: 'techCustomer',
+    Mia: 'marketing', Priya: 'retail', Oliver: 'finServ', Raj: 'manufacturing', Chen: 'partner', Mo: 'successMgr',
+    Gino: 'manufacturing', Nia: 'successMgr', Victor: 'finServ', Margaret: 'publicSector', Max: 'salesExec',
+    Ana: 'marketing', Theo: 'techCustomer', Zara: 'productMgr',
+  };
+  let sheetArt = null;
+  let ashSprite = null;
+  const sheetBillboards = [];
+
+  /** Cut a cell out of the sheet, flood-filling the dark navy panel background to transparent and trimming to the figure. */
+  function cutSprite(img, [sx, sy, sw, sh]) {
+    const c = document.createElement('canvas');
+    c.width = sw;
+    c.height = sh;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    const data = g.getImageData(0, 0, sw, sh);
+    const p = data.data;
+    const n = sw * sh;
+    const isBg = (i) => {
+      const r = p[i * 4], gr = p[i * 4 + 1], b = p[i * 4 + 2];
+      return b > r + 16 && b >= gr - 6 && r + gr + b < 330;
+    };
+    const bg = new Uint8Array(n);
+    const stack = [];
+    for (let x = 0; x < sw; x++) stack.push(x, (sh - 1) * sw + x);
+    for (let y = 0; y < sh; y++) stack.push(y * sw, y * sw + sw - 1);
+    while (stack.length) {
+      const i = stack.pop();
+      if (bg[i] || !isBg(i)) continue;
+      bg[i] = 1;
+      const x = i % sw;
+      if (x > 0) stack.push(i - 1);
+      if (x < sw - 1) stack.push(i + 1);
+      if (i >= sw) stack.push(i - sw);
+      if (i < n - sw) stack.push(i + sw);
+    }
+    // Drop small islands (JPEG speckle, slivers of neighbouring sprites) and keep the main figure.
+    const comp = new Int32Array(n).fill(-1);
+    const sizes = [];
+    for (let s = 0; s < n; s++) {
+      if (bg[s] || comp[s] >= 0) continue;
+      const id = sizes.length;
+      let size = 0;
+      const st = [s];
+      comp[s] = id;
+      while (st.length) {
+        const i = st.pop();
+        size++;
+        const x = i % sw;
+        for (const j of [x > 0 ? i - 1 : -1, x < sw - 1 ? i + 1 : -1, i >= sw ? i - sw : -1, i < n - sw ? i + sw : -1]) {
+          if (j >= 0 && !bg[j] && comp[j] < 0) {
+            comp[j] = id;
+            st.push(j);
+          }
+        }
+      }
+      sizes.push(size);
+    }
+    const biggest = Math.max(1, ...sizes);
+    let minX = sw, minY = sh, maxX = 0, maxY = 0;
+    for (let i = 0; i < n; i++) {
+      if (bg[i] || sizes[comp[i]] < biggest * 0.12) {
+        p[i * 4 + 3] = 0;
+        continue;
+      }
+      const x = i % sw, y = (i / sw) | 0;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    g.putImageData(data, 0, 0);
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, maxX - minX + 1);
+    out.height = Math.max(1, maxY - minY + 1);
+    out.getContext('2d').drawImage(c, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  function cutScene(img, [sx, sy, sw, sh]) {
+    const c = document.createElement('canvas');
+    c.width = sw;
+    c.height = sh;
+    c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    return c;
+  }
+
+  function sheetTexture(canvas) {
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    return t;
+  }
+
+  /** Feet-anchored cut-out; `face` = turn toward the camera around the vertical axis each frame. */
+  function makeCutout(canvas, height, face = true) {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.translate(0, 0.5, 0);
+    const mat = new THREE.MeshBasicMaterial({ map: sheetTexture(canvas), alphaTest: 0.5, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(geo, mat);
+    m.userData.aspect = canvas.width / canvas.height;
+    m.scale.set(height * m.userData.aspect, height, 1);
+    if (face) sheetBillboards.push(m);
+    return m;
+  }
+
+  function facingAngle(obj) {
+    obj.getWorldPosition(_tmpV);
+    return Math.atan2(camera.position.x - _tmpV.x, camera.position.z - _tmpV.z);
+  }
+  const _tmpV = new THREE.Vector3();
+
+  function loadSheetArt() {
+    const img = new Image();
+    img.onload = () => {
+      sheetArt = {};
+      for (const [k, r] of Object.entries(SHEET_RECTS)) sheetArt[k] = cutSprite(img, r);
+      for (const [k, r] of Object.entries(SHEET_SCENES)) sheetArt[`scene_${k}`] = cutScene(img, r);
+      applySheetArt();
+    };
+    img.onerror = () => console.warn('Pipecraft: sprite sheet failed to load — keeping voxel characters');
+    img.src = SHEET_URL;
+  }
+
+  function applySheetArt() {
+    for (const npc of npcs) {
+      const key = npc.def.kind === 'bear' ? 'cloudy' : npc.def.kind === 'guide' ? 'einstein' : NPC_SPRITES[npc.def.name] || 'techCustomer';
+      const h = npc.def.kind === 'bear' ? 1.6 : 1.9;
+      npc.group.children.forEach((c) => { if (c !== npc.tag) c.visible = false; });
+      npc.cutout = makeCutout(sheetArt[key], h);
+      npc.group.add(npc.cutout);
+      npc.tag.position.y = h + 0.4;
+      npc.crystal = makeCutout(sheetArt.crystal, 0.42);
+      npc.crystal.position.y = h + 0.85;
+      npc.coin = makeCutout(sheetArt.coin, 0.55);
+      npc.coin.position.y = h + 0.85;
+      npc.star = makeCutout(sheetArt.star, 0.7);
+      npc.star.position.y = h + 1.45;
+      npc.coinTimer = 0;
+      npc.starTimer = 0;
+      npc.group.add(npc.crystal, npc.coin, npc.star);
+    }
+
+    ashSprite = {
+      textures: Object.fromEntries(['ashFront', 'ashSide', 'ashBack', 'ashQuarter'].map((k) => [k, sheetTexture(sheetArt[k])])),
+      mesh: makeCutout(sheetArt.ashBack, 1.9, false),
+    };
+    ashSprite.mesh.visible = false;
+    scene.add(ashSprite.mesh);
+    if (ashModel) ashModel.group.visible = false;
+
+    // Framed World Tour posters along the boulevard, one per destination.
+    [['o2', -49.5], ['expo', -22.5], ['lounge', 4.5], ['keynote', 40.5], ['peak', 67.5]].forEach(([k, x]) => {
+      const z = -8.55;
+      const base = (npcFloorAt(x, z + 1) ?? 1) + 0.6;
+      const tex = sheetTexture(sheetArt[`scene_${k}`]);
+      const w = 2.6, h = w / sheetArt[`scene_${k}`].width * sheetArt[`scene_${k}`].height;
+      decorBox(scene, 0.12, base + h - 0.4, 0.12, 0x2b2f38, x - w / 2 - 0.1, (base + h - 0.4) / 2 + 0.6, z, { metal: 0.4 });
+      decorBox(scene, 0.12, base + h - 0.4, 0.12, 0x2b2f38, x + w / 2 + 0.1, (base + h - 0.4) / 2 + 0.6, z, { metal: 0.4 });
+      panel(scene, w + 0.16, h + 0.16, tex, x, base + h / 2 + 0.4, z, 0, 0.35, 0.12);
+    });
+
+    // Wayfinding arrows from the sheet replace the text boards on the spawn signpost.
+    wayfindingPanels.forEach((m) => { m.visible = false; });
+    ['signExpo', 'signLounge', 'signKeynote', 'signPeak'].forEach((k, i) => {
+      const s = makeCutout(sheetArt[k], 0.78, false);
+      s.position.set(-47.5 + 1.3, 6.35 - i * 0.82, -7.5 + 0.22);
+      scene.add(s);
+    });
+    const kiosk = makeCutout(sheetArt.mapKiosk, 2.1);
+    kiosk.position.set(-44.5, (npcFloorAt(-44.5, -6.5) ?? 1), -6.5);
+    scene.add(kiosk);
+
+    // Boulevard flags and potted plants become the sheet's banners and plants.
+    bannerFlags.forEach(({ flag, x, z }, i) => {
+      flag.visible = false;
+      const f = makeCutout(sheetArt[i % 2 ? 'flagBlue' : 'flagPink'], 3.4, false);
+      f.position.set(x + 0.45, 3.6, z);
+      scene.add(f);
+      detailAnimated.push((t) => { f.rotation.y = Math.sin(t * 1.5 + x) * 0.15; });
+    });
+    plantSpots.forEach(({ meshes, x, y, z }) => {
+      meshes.forEach((m) => { m.visible = false; });
+      const p = makeCutout(sheetArt.plant, 1.5);
+      p.position.set(x, y, z);
+      scene.add(p);
+    });
+
+    setHudIcons();
+  }
+
+  function setHudIcons() {
+    [['ico-coin', 'coin'], ['ico-star', 'star'], ['ico-crystal', 'crystal']].forEach(([id, k]) => {
+      document.querySelectorAll(`.${id}`).forEach((el) => { el.src = sheetArt[k].toDataURL(); el.hidden = false; });
+    });
+  }
+
+  function updateSheetArt(t, dt) {
+    if (!sheetArt) return;
+    for (const m of sheetBillboards) {
+      if (!m.visible || !m.parent) continue;
+      const parentYaw = m.parent === scene ? 0 : m.parent.rotation.y;
+      m.rotation.y = facingAngle(m) - parentYaw;
+    }
+    for (const npc of npcs) {
+      if (!npc.cutout) continue;
+      const bob = npc.walking ? Math.abs(Math.sin(t * 8 + npc.phase)) * 0.09 : Math.sin(t * 2 + npc.phase) * 0.012;
+      npc.cutout.position.y = bob;
+      npc.cutout.rotation.z = npc.walking ? Math.sin(t * 8 + npc.phase) * 0.06 : 0;
+      npc.crystal.visible = !npc.qualified;
+      npc.crystal.position.y = npc.cutout.scale.y + 0.85 + Math.sin(t * 2.4 + npc.phase) * 0.08;
+      npc.coinTimer = Math.max(0, npc.coinTimer - dt);
+      npc.coin.visible = npc.coinTimer > 0;
+      npc.coin.position.y = npc.cutout.scale.y + 0.85 + (2.5 - npc.coinTimer) * 0.5;
+      npc.starTimer = Math.max(0, npc.starTimer - dt);
+      npc.star.visible = npc.starTimer > 0;
+      npc.star.scale.setScalar(0.7 * (1 + Math.sin(t * 6) * 0.08));
+      npc.star.scale.x *= npc.star.userData.aspect;
+    }
+  }
+
+  /** Pick Ash's front / side / back / ¾ sheet view from her movement relative to the third-person camera. */
+  function updateAshSprite() {
+    if (!ashSprite) return;
+    const m = ashSprite.mesh;
+    m.visible = thirdPerson;
+    if (!thirdPerson) return;
+    const fwd = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
+    const strafe = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+    const a = fwd || strafe ? Math.atan2(strafe, fwd) : 0;
+    const abs = Math.abs(a);
+    const view = abs < 0.4 ? 'ashBack' : abs < 2.0 ? 'ashSide' : abs < 2.8 ? 'ashQuarter' : 'ashFront';
+    const tex = ashSprite.textures[view];
+    if (m.material.map !== tex) {
+      m.material.map = tex;
+      m.userData.aspect = tex.image.width / tex.image.height;
+    }
+    const moving = fwd || strafe;
+    const flip = a < 0 ? -1 : 1;
+    m.position.set(player.x, player.y + (moving && player.onGround ? Math.abs(Math.sin(clock.elapsedTime * (player.sprint ? 13 : 9))) * 0.08 : 0), player.z);
+    m.scale.set(1.9 * m.userData.aspect * flip, 1.9, 1);
+    m.rotation.y = Math.atan2(camera.position.x - player.x, camera.position.z - player.z);
   }
 
   function updateScannerPulse(t) {
@@ -2301,6 +2580,8 @@
 
     updateNpcs(dt, clock.elapsedTime);
     updateAshModel(clock.elapsedTime);
+    updateSheetArt(clock.elapsedTime, dt);
+    updateAshSprite();
     updateWorldDetails(clock.elapsedTime);
 
     if (state === 'playing') {
@@ -2331,7 +2612,7 @@
 
   if (window.innerWidth < 700) document.getElementById('slack-board').classList.add('hidden');
 
-  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, getState: () => state };
+  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, art: () => sheetArt, getState: () => state };
 
   if (!initWebGL()) {
     console.error('WebGL init failed');
