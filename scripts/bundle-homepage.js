@@ -22,8 +22,7 @@ try {
 }
 const webpUri = (file) => `data:image/webp;base64,${readFileSync(join(ROOT, file)).toString("base64")}`;
 const heroDataUri = webpUri("assets/title-hero.webp");
-const sheetDataUri = webpUri("assets/sprite-sheet.webp");
-game = game.replace(/(["'])assets\/sprite-sheet\.webp\1/, () => `"${sheetDataUri}"`);
+game = game.replace(/(["'])assets\/([\w-]+\.webp)\1/g, (_, _q, file) => `"${webpUri(`assets/${file}`)}"`);
 
 const bundled = html
   .replace('<script src="vendor/three.min.js"></script>', () => `<script>\n${three}\n</script>`)

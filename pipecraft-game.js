@@ -19,7 +19,7 @@
     wood: 0x8b6914,
     skin: 0x8d5524,
     hair: 0x3d2314,
-    blazer: 0x1a1a22,
+    blazer: 0xa8238f,
     white: 0xf5f5f5,
     cloudWhite: 0xe8f8ff,
     trim: 0xeef1f6,
@@ -1305,7 +1305,7 @@
         px(g, W - 2, 0, css(PALETTE.blazer, 0.6), 1, H);
       }),
     });
-    const shirtMat = new THREE.MeshStandardMaterial({ color: PALETTE.white, roughness: 0.95 });
+    const shirtMat = new THREE.MeshStandardMaterial({ color: 0xff3fbf, roughness: 1 });
     const skinMat = new THREE.MeshStandardMaterial({ color: ASH_DEF.skin, roughness: 0.9 });
     const cyanMat = new THREE.MeshStandardMaterial({
       color: PALETTE.scannerCyan,
@@ -1337,7 +1337,7 @@
     fpViewGroup.scale.setScalar(0.4);
     // Right forearm reaching forward, holding the Cloud Scanner
     add(new THREE.BoxGeometry(0.12, 0.12, 0.5), blazerMat, 0.3, -0.06, -0.3, 0.18);
-    add(new THREE.BoxGeometry(0.13, 0.13, 0.05), shirtMat, 0.3, -0.01, -0.56, 0.18);
+    add(new THREE.BoxGeometry(0.17, 0.17, 0.08), shirtMat, 0.3, -0.01, -0.56, 0.18);
     add(new THREE.BoxGeometry(0.11, 0.11, 0.1), skinMat, 0.3, 0.01, -0.62, 0.18);
     add(new THREE.BoxGeometry(0.16, 0.13, 0.3), blueMat, 0.3, 0.07, -0.74, 0.18);
     add(new THREE.BoxGeometry(0.17, 0.05, 0.31), whiteMat, 0.3, 0.15, -0.73, 0.18);
@@ -1345,7 +1345,7 @@
     add(new THREE.BoxGeometry(0.05, 0.05, 0.05), cyanMat, 0.3, 0.12, -0.92, 0.18);
     // Left forearm low in view
     add(new THREE.BoxGeometry(0.12, 0.12, 0.42), blazerMat, -0.34, -0.14, -0.32, 0.3);
-    add(new THREE.BoxGeometry(0.13, 0.13, 0.05), shirtMat, -0.34, -0.07, -0.54, 0.3);
+    add(new THREE.BoxGeometry(0.17, 0.17, 0.08), shirtMat, -0.34, -0.07, -0.54, 0.3);
     add(new THREE.BoxGeometry(0.11, 0.11, 0.1), skinMat, -0.34, -0.04, -0.6, 0.3);
 
     cam.add(fpViewGroup);
@@ -1472,7 +1472,7 @@
 
   const ASH_DEF = {
     name: 'Ash', role: 'RVP', skin: C.skinBrown, hair: C.hairDark, hairStyle: 'curly', outfit: 'blazer',
-    top: 0x1a1a22, shirt: C.white, bottom: 0x1a1a22, extras: ['earrings', 'scanner'], eyes: 0x3b2314,
+    top: 0xa8238f, shirt: C.white, bottom: 0xa8238f, extras: ['earrings', 'scanner'], eyes: 0x3b2314,
   };
 
   const npcs = [];
@@ -2037,6 +2037,7 @@
 
   // --- Sprite sheet art: characters, collectibles, signage and scenes cut from the World Tour sheet ---
   const SHEET_URL = 'assets/sprite-sheet.webp';
+  const ASH_URL = 'assets/ash-sprite.webp';
   const SHEET_RECTS = {
     ashFront: [3, 172, 87, 116], ashSide: [90, 172, 65, 116], ashBack: [155, 172, 80, 116], ashQuarter: [235, 172, 73, 116],
     salesExec: [7, 328, 54, 90], solutionEng: [63, 328, 56, 90], productMgr: [120, 328, 58, 90],
@@ -2199,6 +2200,53 @@
     return c;
   }
 
+  /** Crop a transparent PNG/WebP to its opaque bounds. */
+  function trimToAlpha(img) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (data[(y * width + x) * 4 + 3] > 24) {
+          minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, maxX - minX + 1);
+    out.height = Math.max(1, maxY - minY + 1);
+    out.getContext('2d').drawImage(c, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /** Recolour the sheet's black suit to Ash's magenta outfit so side/back views match the new front art. */
+  function recolourSuit(src) {
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height);
+    const p = d.data;
+    for (let i = 0; i < p.length; i += 4) {
+      if (!p[i + 3]) continue;
+      const r = p[i], gr = p[i + 1], b = p[i + 2];
+      const lum = 0.3 * r + 0.59 * gr + 0.11 * b;
+      if (Math.max(r, gr, b) - Math.min(r, gr, b) < 28 && b >= r - 3 && lum < 120) {
+        p[i] = Math.min(255, 70 + lum * 1.7);
+        p[i + 1] = 12 + lum * 0.35;
+        p[i + 2] = Math.min(255, 60 + lum * 1.35);
+      }
+    }
+    g.putImageData(d, 0, 0);
+    return c;
+  }
+
   function loadImage(src) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -2217,7 +2265,7 @@
 
   async function loadSheetArt() {
     const heroUrl = heroImageUrl();
-    const [img, lineup] = await Promise.all([loadImage(SHEET_URL), heroUrl ? loadImage(heroUrl) : null]);
+    const [img, lineup, ash] = await Promise.all([loadImage(SHEET_URL), heroUrl ? loadImage(heroUrl) : null, loadImage(ASH_URL)]);
     if (!img) {
       console.warn('Pipecraft: sprite sheet failed to load — keeping voxel characters');
       return;
@@ -2226,6 +2274,12 @@
     for (const [k, r] of Object.entries(SHEET_RECTS)) sheetArt[k] = cutSprite(img, r);
     for (const [k, r] of Object.entries(SHEET_SCENES)) sheetArt[`scene_${k}`] = cutScene(img, r);
     sheetArt.bulb = drawAskBubble();
+    if (ash) {
+      sheetArt.ashFront = trimToAlpha(ash);
+      sheetArt.ashQuarter = sheetArt.ashFront;
+      sheetArt.ashSide = recolourSuit(sheetArt.ashSide);
+      sheetArt.ashBack = recolourSuit(sheetArt.ashBack);
+    }
     for (const [k, r] of Object.entries(LINEUP_RECTS)) {
       sheetArt[k] = lineup && lineup.naturalWidth === 1024 ? cutSprite(lineup, r, isLightBg) : sheetArt.techCustomer;
     }
