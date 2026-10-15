@@ -2224,29 +2224,6 @@
     return out;
   }
 
-  /** Recolour the sheet's black suit to Ash's magenta outfit so side/back views match the new front art. */
-  function recolourSuit(src) {
-    const c = document.createElement('canvas');
-    c.width = src.width;
-    c.height = src.height;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    g.drawImage(src, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height);
-    const p = d.data;
-    for (let i = 0; i < p.length; i += 4) {
-      if (!p[i + 3]) continue;
-      const r = p[i], gr = p[i + 1], b = p[i + 2];
-      const lum = 0.3 * r + 0.59 * gr + 0.11 * b;
-      if (Math.max(r, gr, b) - Math.min(r, gr, b) < 28 && b >= r - 3 && lum < 120) {
-        p[i] = Math.min(255, 70 + lum * 1.7);
-        p[i + 1] = 12 + lum * 0.35;
-        p[i + 2] = Math.min(255, 60 + lum * 1.35);
-      }
-    }
-    g.putImageData(d, 0, 0);
-    return c;
-  }
-
   function loadImage(src) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -2275,10 +2252,11 @@
     for (const [k, r] of Object.entries(SHEET_SCENES)) sheetArt[`scene_${k}`] = cutScene(img, r);
     sheetArt.bulb = drawAskBubble();
     if (ash) {
+      // One consistent outfit from every angle; the sheet's black-suit views are not mixed in.
       sheetArt.ashFront = trimToAlpha(ash);
       sheetArt.ashQuarter = sheetArt.ashFront;
-      sheetArt.ashSide = recolourSuit(sheetArt.ashSide);
-      sheetArt.ashBack = recolourSuit(sheetArt.ashBack);
+      sheetArt.ashSide = sheetArt.ashFront;
+      sheetArt.ashBack = sheetArt.ashFront;
     }
     for (const [k, r] of Object.entries(LINEUP_RECTS)) {
       sheetArt[k] = lineup && lineup.naturalWidth === 1024 ? cutSprite(lineup, r, isLightBg) : sheetArt.techCustomer;
@@ -2399,22 +2377,17 @@
     const m = ashSprite.mesh;
     m.visible = thirdPerson;
     if (!thirdPerson) return;
-    const moving = player.movingNow;
-    const hx = moving ? player.headX : -Math.sin(player.yaw);
-    const hz = moving ? player.headZ : -Math.cos(player.yaw);
-    const cx = camera.position.x - player.x;
-    const cz = camera.position.z - player.z;
-    // 0 = Ash faces the camera, ±π = facing away; sign says which way she turns on screen.
-    const a = Math.atan2(hx * cz - hz * cx, hx * cx + hz * cz);
-    const abs = Math.PI - Math.abs(a);
-    const view = abs < 0.5 ? 'ashBack' : abs < 2.0 ? 'ashSide' : abs < 2.7 ? 'ashQuarter' : 'ashFront';
-    const tex = ashSprite.textures[view];
+    const tex = ashSprite.textures.ashFront;
     if (m.material.map !== tex) {
       m.material.map = tex;
       m.userData.aspect = tex.image.width / tex.image.height;
     }
-    const flip = a < 0 ? -1 : 1;
-    m.position.set(player.x, player.y + (moving && player.onGround ? Math.abs(Math.sin(clock.elapsedTime * (player.sprint ? 13 : 9))) * 0.08 : 0), player.z);
+    // Mirror only on deliberate sideways movement relative to the camera, so collisions don't make her flicker.
+    const strafe = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+    if (strafe && player.movingNow) ashSprite.flip = strafe * (viewMode === 'front' ? 1 : -1) > 0 ? -1 : 1;
+    const flip = ashSprite.flip || 1;
+    const bob = player.movingNow && player.onGround ? Math.abs(Math.sin(clock.elapsedTime * (player.sprint ? 13 : 9))) * 0.08 : 0;
+    m.position.set(player.x, player.y + bob, player.z);
     m.scale.set(1.9 * m.userData.aspect * flip, 1.9, 1);
     m.rotation.y = Math.atan2(camera.position.x - player.x, camera.position.z - player.z);
   }
