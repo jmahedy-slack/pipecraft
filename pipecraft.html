@@ -130,12 +130,25 @@
     #webgl-fallback { color: #ffb4b4; }
 
     .title-hero {
+      --hero: url("assets/title-hero.jpg");
       align-items: flex-end;
+      background: var(--arena-navy);
+      overflow: hidden;
+    }
+    /* Blurred fill behind, full uncropped art on top, so every pane shape shows all the title text. */
+    .title-hero::before, .title-hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+    .title-hero::before {
+      background: var(--hero) center / cover no-repeat;
+      filter: blur(22px) brightness(0.45) saturate(1.2);
+      transform: scale(1.15);
+    }
+    .title-hero::after {
       background:
-        linear-gradient(to top, rgba(16, 35, 71, 0.92) 0%, rgba(16, 35, 71, 0.55) 18%, rgba(16, 35, 71, 0) 40%),
-        var(--arena-navy) url("assets/title-hero.jpg") center / cover no-repeat;
+        linear-gradient(to top, rgba(16, 35, 71, 0.9) 0%, rgba(16, 35, 71, 0.4) 14%, rgba(16, 35, 71, 0) 30%),
+        var(--hero) center 38% / contain no-repeat;
     }
     .title-menu {
+      position: relative; z-index: 1;
       display: flex; flex-direction: column; align-items: center; gap: 0.7rem;
       padding-bottom: clamp(1rem, 5vh, 3rem);
     }

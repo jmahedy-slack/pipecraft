@@ -1177,6 +1177,8 @@
     renderer.render(scene, camera);
   }
 
+  window.__pipecraft = { player, npcs, lookBy, getState: () => state };
+
   if (!initWebGL()) {
     console.error('WebGL init failed');
   }
