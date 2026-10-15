@@ -1836,7 +1836,7 @@
     ashModel.group.visible = thirdPerson;
     if (fpViewGroup) fpViewGroup.visible = !thirdPerson;
     if (!thirdPerson) return;
-    const moving = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+    const moving = keys.ArrowUp || keys.ArrowLeft || keys.ArrowDown || keys.ArrowRight;
     ashModel.group.position.set(player.x, player.y, player.z);
     ashModel.group.rotation.y = player.yaw + Math.PI;
     animateLimbs(ashModel.parts, moving && player.onGround, t, 0, player.sprint ? 13 : 9);
@@ -2024,7 +2024,7 @@
     });
 
     // Pointer lock is often blocked inside embedded previews (e.g. Slack tabs),
-    // so drag-to-look and arrow-key look always work as fallbacks.
+    // so drag-to-look and WASD look always work as fallbacks.
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -2086,7 +2086,7 @@
 
   function updateLookHint() {
     const hint = document.getElementById('click-to-play');
-    hint.textContent = 'Click to capture mouse · or drag / arrow keys to look';
+    hint.textContent = 'Click to capture mouse · or drag / WASD to look';
     hint.classList.toggle('hidden', pointerLocked || state !== 'playing');
   }
 
@@ -2144,16 +2144,16 @@
   }
 
   function movePlayer(dt) {
-    const forward = keys['KeyW'];
-    const back = keys['KeyS'];
-    const left = keys['KeyA'];
-    const right = keys['KeyD'];
+    const forward = keys['ArrowUp'];
+    const back = keys['ArrowDown'];
+    const left = keys['ArrowLeft'];
+    const right = keys['ArrowRight'];
 
     const turn = 2.2 * settings.sensitivity * dt;
-    if (keys['ArrowLeft']) lookBy(-turn, 0);
-    if (keys['ArrowRight']) lookBy(turn, 0);
-    if (keys['ArrowUp']) lookBy(0, -turn * 0.7);
-    if (keys['ArrowDown']) lookBy(0, turn * 0.7);
+    if (keys['KeyA']) lookBy(-turn, 0);
+    if (keys['KeyD']) lookBy(turn, 0);
+    if (keys['KeyW']) lookBy(0, -turn * 0.7);
+    if (keys['KeyS']) lookBy(0, turn * 0.7);
     player.sprint = keys['ShiftLeft'] || keys['ShiftRight'];
 
     const speed = player.sprint ? 9 : 5.5;
