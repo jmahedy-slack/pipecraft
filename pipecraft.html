@@ -160,7 +160,7 @@
     #webgl-fallback { color: #ffb4b4; }
 
     .title-hero {
-      --hero: url("assets/title-hero.jpg");
+      --hero: url("assets/title-hero.webp");
       align-items: flex-end;
       background: var(--arena-navy);
       overflow: hidden;
@@ -173,9 +173,9 @@
       transform: scale(1.15);
     }
     .title-hero::after {
-      background:
-        linear-gradient(to top, rgba(16, 35, 71, 0.9) 0%, rgba(16, 35, 71, 0.4) 14%, rgba(16, 35, 71, 0) 30%),
-        var(--hero) center 38% / contain no-repeat;
+      inset: 12px 12px 132px 12px;
+      background: var(--hero) center / contain no-repeat;
+      filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
     }
     .title-menu {
       position: relative; z-index: 1;
@@ -294,6 +294,7 @@
       <div class="ctl-row ctl-actions">
         <button class="key" data-code="KeyE">E <small>Scan</small></button>
         <button class="key" data-code="Tab">Tab <small>Map</small></button>
+        <button class="key" data-code="KeyV">V <small>View</small></button>
         <button class="key" data-code="Escape">Esc <small>Pause</small></button>
       </div>
     </div>
