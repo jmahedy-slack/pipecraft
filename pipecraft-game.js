@@ -2509,7 +2509,11 @@
     if (back) mz += 1;
     if (left) mx -= 1;
     if (right) mx += 1;
-    if (viewMode === 'front') mx = -mx;
+    // Front view looks back at Ash, so keys stay screen-relative: ↑ walks away from the camera.
+    if (viewMode === 'front') {
+      mx = -mx;
+      mz = -mz;
+    }
     const len = Math.hypot(mx, mz) || 1;
     mx /= len;
     mz /= len;
@@ -2703,7 +2707,7 @@
 
   if (window.innerWidth < 700) document.getElementById('slack-board').classList.add('hidden');
 
-  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, art: () => sheetArt, getState: () => state };
+  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, move: (dt) => movePlayer(dt), view: () => viewMode, art: () => sheetArt, getState: () => state };
 
   if (!initWebGL()) {
     console.error('WebGL init failed');
