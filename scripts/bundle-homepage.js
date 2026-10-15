@@ -14,8 +14,8 @@ const three = readFileSync(join(ROOT, "vendor/three.min.js"), "utf8");
 const game = readFileSync(join(ROOT, "pipecraft-game.js"), "utf8");
 
 const bundled = html
-  .replace('<script src="vendor/three.min.js"></script>', `<script>\n${three}\n</script>`)
-  .replace('<script src="pipecraft-game.js"></script>', `<script>\n${game}\n</script>`);
+  .replace('<script src="vendor/three.min.js"></script>', () => `<script>\n${three}\n</script>`)
+  .replace('<script src="pipecraft-game.js"></script>', () => `<script>\n${game}\n</script>`);
 
 writeFileSync(join(ROOT, "Homepage.html"), bundled, "utf8");
 console.log(`✔ Homepage.html bundled (${(bundled.length / 1024).toFixed(0)} KB)`);
