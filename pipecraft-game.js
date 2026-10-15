@@ -896,7 +896,11 @@
     { name: 'Joe Connolly', score: 800, color: '#36c5f0' },
     { name: 'Nasreen Khan', score: 350, color: '#9b59b6' },
   ];
-  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, feed: [] };
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, feed: [] };
+  const CULTURE = { colleague: 25, mascot: 50, cooldown: 20 };
+  const CULTURE_MOMENTS = ['High five', 'Coffee catch-up', 'Celebrated a win', 'Swapped Trailhead badges', 'Shared a customer story', 'Quick huddle'];
+  const SALESFORCE_ROLES = new Set(['Event Staff', 'Sales Executive', 'Solution Engineer', 'Product Manager', 'Marketing', 'Success Manager', 'Stage Host', 'Tech Support']);
+  const isColleague = (def) => Boolean(def.team || def.kind || SALESFORCE_ROLES.has(def.role));
   const STRIDE = 0.75;
   const STEP_MILESTONE = 1000;
   let strideDistance = 0;
@@ -905,7 +909,8 @@
   let lastQualifyAt = -Infinity;
 
   function resetProgress() {
-    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, feed: [] });
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, culture: 0, feed: [] });
+    npcs.forEach((n) => { n.cultureReadyAt = 0; });
     strideDistance = 0;
     npcs.forEach((n) => setQualified(n, false));
     lastQualifyAt = -Infinity;
@@ -953,7 +958,7 @@
 
   function setQualified(npc, qualified) {
     npc.qualified = qualified;
-    npc.tag.material.color.set(qualified ? PALETTE.successGreen : npc.def.team ? PALETTE.glass : 0xffffff);
+    npc.tag.material.color.set(qualified ? PALETTE.successGreen : npc.colleague ? PALETTE.glass : 0xffffff);
   }
 
   function updateScoreHud() {
@@ -963,6 +968,7 @@
     document.getElementById('streak-value').textContent = progress.streak;
     document.getElementById('deals-value').textContent = progress.opps;
     updateStepsHud();
+    updateCultureHud();
     renderBoard();
   }
 
@@ -994,6 +1000,28 @@
     toastTimer = 1.6;
   }
 
+  /** Colleagues aren't leads: interacting earns culture points (with a cooldown per person). */
+  function interactWithColleague(npc) {
+    const now = clock.elapsedTime;
+    if (now < (npc.cultureReadyAt || 0)) {
+      showToast(`You just caught up with ${npc.def.name} — say hi to someone else`, false);
+      return;
+    }
+    npc.cultureReadyAt = now + CULTURE.cooldown;
+    const points = npc.def.kind ? CULTURE.mascot : CULTURE.colleague;
+    const moment = npc.def.kind ? 'Selfie' : CULTURE_MOMENTS[Math.floor(Math.random() * CULTURE_MOMENTS.length)];
+    progress.culture += points;
+    npc.heartTimer = 2.2;
+    showToast(`❤️ +${points} CULTURE · ${moment} with ${npc.def.name}`);
+    postToBoard(`<b>Ash</b> ❤️ ${moment.toLowerCase()} with <b>${npc.def.name}</b> · +${points} culture`);
+    updateCultureHud();
+    saveProgress();
+  }
+
+  function updateCultureHud() {
+    document.getElementById('culture-value').textContent = progress.culture.toLocaleString('en-GB');
+  }
+
   /** Scan the closest unqualified attendee in range and roughly in front of Ash. */
   function tryScan() {
     const fx = -Math.sin(player.yaw);
@@ -1015,8 +1043,8 @@
       showToast('No attendee in scanner range', false);
       return;
     }
-    if (best.def.team) {
-      showToast(`${best.def.name} is on the World Tour team — colleagues aren't scanned`, false);
+    if (best.colleague) {
+      interactWithColleague(best);
       return;
     }
     if (best.qualified) {
@@ -1767,13 +1795,14 @@
       if (floor === null) return;
       const tag = makeNameTag(def.name, def.role);
       tag.position.y = def.kind === 'bear' ? 2.25 : 2.35;
-      if (def.team) tag.material.color.set(PALETTE.glass);
+      if (isColleague(def)) tag.material.color.set(PALETTE.glass);
       built.group.add(tag);
       built.group.position.set(hx + 0.5, floor, hz + 0.5);
       built.group.rotation.y = Math.random() * Math.PI * 2;
       scene.add(built.group);
       npcs.push({
         def, ...built, tag, index: i,
+        colleague: isColleague(def),
         qualified: false,
         dealValue: [25000, 40000, 60000, 85000][i % 4],
         home: { x: hx + 0.5, z: hz + 0.5 },
@@ -1924,7 +1953,7 @@
     healthcare: [515, 331, 48, 88], publicSector: [563, 331, 50, 88], techCustomer: [615, 331, 45, 88],
     partner: [660, 331, 50, 88], camera: [710, 331, 52, 88], media: [765, 331, 45, 88], student: [810, 331, 45, 88],
     cloudy: [866, 327, 78, 90], einstein: [953, 328, 63, 89],
-    crystal: [852, 457, 28, 34], coin: [893, 457, 38, 36], star: [931, 550, 36, 37],
+    crystal: [852, 457, 28, 34], coin: [893, 457, 38, 36], star: [931, 550, 36, 37], heart: [980, 554, 34, 32],
     flagPink: [363, 458, 40, 88], flagBlue: [402, 458, 36, 82], plant: [598, 505, 36, 50], mapKiosk: [766, 524, 68, 74],
     signExpo: [695, 459, 72, 26], signKeynote: [695, 484, 72, 24], signDemo: [695, 507, 72, 25],
     signLounge: [695, 531, 72, 25], signPeak: [695, 555, 72, 36],
@@ -2074,9 +2103,11 @@
       npc.coin.position.y = h + 0.85;
       npc.star = makeCutout(sheetArt.star, 0.7);
       npc.star.position.y = h + 1.45;
+      npc.heart = makeCutout(sheetArt.heart, 0.5);
       npc.coinTimer = 0;
       npc.starTimer = 0;
-      npc.group.add(npc.crystal, npc.coin, npc.star);
+      npc.heartTimer = 0;
+      npc.group.add(npc.crystal, npc.coin, npc.star, npc.heart);
     }
 
     ashSprite = {
@@ -2128,7 +2159,7 @@
   }
 
   function setHudIcons() {
-    [['ico-coin', 'coin'], ['ico-star', 'star'], ['ico-crystal', 'crystal']].forEach(([id, k]) => {
+    [['ico-coin', 'coin'], ['ico-star', 'star'], ['ico-crystal', 'crystal'], ['ico-heart', 'heart']].forEach(([id, k]) => {
       document.querySelectorAll(`.${id}`).forEach((el) => { el.src = sheetArt[k].toDataURL(); el.hidden = false; });
     });
   }
@@ -2145,7 +2176,7 @@
       const bob = npc.walking ? Math.abs(Math.sin(t * 8 + npc.phase)) * 0.09 : Math.sin(t * 2 + npc.phase) * 0.012;
       npc.cutout.position.y = bob;
       npc.cutout.rotation.z = npc.walking ? Math.sin(t * 8 + npc.phase) * 0.06 : 0;
-      npc.crystal.visible = !npc.qualified && !npc.def.team;
+      npc.crystal.visible = !npc.qualified && !npc.colleague;
       npc.crystal.position.y = npc.cutout.scale.y + 0.85 + Math.sin(t * 2.4 + npc.phase) * 0.08;
       npc.coinTimer = Math.max(0, npc.coinTimer - dt);
       npc.coin.visible = npc.coinTimer > 0;
@@ -2154,6 +2185,10 @@
       npc.star.visible = npc.starTimer > 0;
       npc.star.scale.setScalar(0.7 * (1 + Math.sin(t * 6) * 0.08));
       npc.star.scale.x *= npc.star.userData.aspect;
+      npc.heartTimer = Math.max(0, (npc.heartTimer || 0) - dt);
+      npc.heart.visible = npc.heartTimer > 0;
+      npc.heart.position.y = npc.cutout.scale.y + 0.7 + (2.2 - npc.heartTimer) * 0.55;
+      npc.heart.scale.set(0.5 * npc.heart.userData.aspect, 0.5, 1).multiplyScalar(1 + Math.sin(t * 10) * 0.1);
     }
   }
 
