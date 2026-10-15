@@ -124,24 +124,63 @@
       position: absolute; bottom: 22%; left: 50%; transform: translateX(-50%);
       font-size: 0.85rem; color: var(--scanner-cyan); animation: pulse 1.5s infinite;
     }
+    #click-to-play.hidden { display: none; }
     @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
     #webgl-fallback { color: #ffb4b4; }
+
+    .title-hero {
+      align-items: flex-end;
+      background:
+        linear-gradient(to top, rgba(16, 35, 71, 0.92) 0%, rgba(16, 35, 71, 0.55) 18%, rgba(16, 35, 71, 0) 40%),
+        var(--arena-navy) url("assets/title-hero.jpg") center / cover no-repeat;
+    }
+    .title-menu {
+      display: flex; flex-direction: column; align-items: center; gap: 0.7rem;
+      padding-bottom: clamp(1rem, 5vh, 3rem);
+    }
+    .title-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .block-btn {
+      cursor: pointer; border: 3px solid var(--arena-navy); border-radius: 4px;
+      padding: 0.8rem 2rem; min-width: 190px;
+      font: 800 1.15rem/1 "Segoe UI", system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+      transition: transform 0.1s, box-shadow 0.1s, filter 0.1s;
+    }
+    .block-btn.start {
+      background: linear-gradient(180deg, #ffd97a, var(--deal-gold));
+      color: var(--arena-navy); box-shadow: 0 6px 0 #b8862a, 0 10px 24px rgba(0, 0, 0, 0.45);
+    }
+    .block-btn.resume {
+      background: linear-gradient(180deg, #4fb0ff, var(--world-tour-blue));
+      color: #fff; box-shadow: 0 6px 0 #0b5fb3, 0 10px 24px rgba(0, 0, 0, 0.45);
+    }
+    .block-btn:hover, .block-btn:focus-visible { filter: brightness(1.08); transform: translateY(-2px); outline: none; }
+    .block-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
+    .block-btn.hidden { display: none; }
+    .title-links { display: flex; gap: 0.5rem; align-items: center; color: #8eb8dc; font-size: 0.9rem; }
+    .link-btn {
+      cursor: pointer; background: none; border: none; color: #e8f4ff;
+      font: 600 0.9rem "Segoe UI", system-ui, sans-serif; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    }
+    .link-btn:hover { color: var(--scanner-cyan); }
+    .title-legal { font-size: 0.68rem; color: rgba(232, 244, 255, 0.6); }
   </style>
 </head>
 <body>
   <div id="game-root"></div>
 
-  <div id="screen-title" class="overlay">
-    <div class="panel">
-      <h1>PIPECRAFT</h1>
-      <div class="subtitle">BUILDS PIPELINE</div>
-      <div class="tagline">A World Tour Adventure — build pipeline like you build a world.</div>
-      <div class="btn-row">
-        <button type="button" class="primary" id="btn-start">Start Adventure</button>
-        <button type="button" class="secondary" id="btn-how">How to Play</button>
-        <button type="button" class="secondary" id="btn-settings">Settings</button>
+  <div id="screen-title" class="overlay title-hero" role="dialog" aria-label="PIPECRAFT — Builds Pipeline: A World Tour Adventure">
+    <div class="title-menu">
+      <div class="title-actions">
+        <button type="button" class="block-btn start" id="btn-start">▶ Start Game</button>
+        <button type="button" class="block-btn resume hidden" id="btn-continue">⟲ Resume</button>
       </div>
+      <div class="title-links">
+        <button type="button" class="link-btn" id="btn-how">How to Play</button>
+        <span>·</span>
+        <button type="button" class="link-btn" id="btn-settings">Settings</button>
+      </div>
+      <div class="title-legal">A fictional, family-friendly homage · not an official Salesforce or Minecraft product</div>
     </div>
   </div>
 
@@ -149,7 +188,7 @@
     <div class="panel">
       <h1>How to Play</h1>
       <div class="controls-list">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move · Mouse look · <kbd>Space</kbd> Jump · <kbd>Shift</kbd> Sprint</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move · Mouse / drag / <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> Look · <kbd>Space</kbd> Jump · <kbd>Shift</kbd> Sprint</div>
         <div><kbd>E</kbd> Interact · <kbd>L-click</kbd> Cloud Scanner · <kbd>Tab</kbd> Map focus · <kbd>Esc</kbd> Pause</div>
         <div style="margin-top:0.5rem;color:#8eb8dc;">Milestone 1: explore all five zones on the connected map. Pipeline loop arrives in the next update.</div>
       </div>
@@ -208,7 +247,7 @@
     </div>
     <div id="reticle"></div>
     <div id="zone-banner"></div>
-    <div id="tutorial-toast">Welcome to World Tour London! WASD to move, mouse to look. Follow the cyan path toward The O2.</div>
+    <div id="tutorial-toast">Welcome to World Tour London! WASD to move, drag or arrow keys to look. Follow the cyan path toward The O2.</div>
     <div id="click-to-play" class="hidden">Click to capture mouse</div>
   </div>
 
