@@ -953,7 +953,7 @@
 
   function setQualified(npc, qualified) {
     npc.qualified = qualified;
-    npc.tag.material.color.set(qualified ? PALETTE.successGreen : 0xffffff);
+    npc.tag.material.color.set(qualified ? PALETTE.successGreen : npc.def.team ? PALETTE.glass : 0xffffff);
   }
 
   function updateScoreHud() {
@@ -1013,6 +1013,10 @@
     }
     if (!best) {
       showToast('No attendee in scanner range', false);
+      return;
+    }
+    if (best.def.team) {
+      showToast(`${best.def.name} is on the World Tour team — colleagues aren't scanned`, false);
       return;
     }
     if (best.qualified) {
@@ -1329,6 +1333,21 @@
     { name: 'Theo', role: 'Attendee', at: [72, -3], skin: C.skinDeep, hair: C.hairBlack, outfit: 'tee', top: C.green, bottom: C.denim },
     { name: 'Zara', role: 'VIP', at: [76, 4], skin: C.skinTan, hair: C.hairBlack, hairStyle: 'curly', outfit: 'blazer', top: C.white, shirt: C.gold, bottom: C.khaki, extras: ['shades', 'earrings'] },
     { name: 'Cloudy', role: 'Mascot', at: [82, -3], kind: 'bear' },
+    // World Tour team (from the cover lineup): colleagues, not leads — their badges are never scanned.
+    { name: 'Miroshen', role: 'World Tour Team', team: true, sprite: 'solutionEng', at: [-50, 3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Niall', role: 'World Tour Team', team: true, sprite: 'salesExec', at: [-42, -3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Niamh', role: 'World Tour Team', team: true, sprite: 'retail', at: [-34, 4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Samm', role: 'World Tour Team', team: true, sprite: 'manufacturing', at: [-26, -2], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Daniela', role: 'World Tour Team', team: true, sprite: 'marketing', at: [-15, 3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Lachlan', role: 'World Tour Team', team: true, sprite: 'media', at: [-8, -4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Joe', role: 'World Tour Team', team: true, sprite: 'successMgr', at: [2, 3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Nasreen', role: 'World Tour Team', team: true, sprite: 'productMgr', at: [10, -3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Alwyn', role: 'World Tour Team', team: true, sprite: 'eventStaff', at: [18, 4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Aluyur', role: 'World Tour Team', team: true, sprite: 'student', at: [30, -4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Mayur', role: 'World Tour Team', team: true, sprite: 'partner', at: [36, 3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Ben', role: 'World Tour Team', team: true, sprite: 'techCustomer', at: [46, -5], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Elvige', role: 'World Tour Team', team: true, sprite: 'healthcare', at: [55, 4], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
+    { name: 'Ollie', role: 'World Tour Team', team: true, sprite: 'finServ', at: [64, -3], skin: C.skinMid, hair: C.hairBrown, outfit: 'blazer', top: C.navy, bottom: C.charcoal, extras: [] },
   ];
 
   const ASH_DEF = {
@@ -1748,6 +1767,7 @@
       if (floor === null) return;
       const tag = makeNameTag(def.name, def.role);
       tag.position.y = def.kind === 'bear' ? 2.25 : 2.35;
+      if (def.team) tag.material.color.set(PALETTE.glass);
       built.group.add(tag);
       built.group.position.set(hx + 0.5, floor, hz + 0.5);
       built.group.rotation.y = Math.random() * Math.PI * 2;
@@ -1863,9 +1883,23 @@
     scene.add(ashModel.group);
   }
 
+  const VIEW_LABELS = {
+    first: 'First-person view',
+    third: 'Third-person view — behind Ash',
+    front: 'Front view — meet Ash · W/S orbit · scroll to zoom',
+  };
+  const VIEW_ZOOM = { third: 3.6, front: 6.5 };
+  let viewMode = 'first';
+  let camZoom = 3.6;
+  let camZoomTarget = 3.6;
+
   function toggleView() {
-    thirdPerson = !thirdPerson;
-    showToast(thirdPerson ? 'Third-person view — meet Ash' : 'First-person view', false);
+    const order = ['first', 'third', 'front'];
+    viewMode = order[(order.indexOf(viewMode) + 1) % order.length];
+    thirdPerson = viewMode !== 'first';
+    if (thirdPerson) camZoomTarget = VIEW_ZOOM[viewMode];
+    document.getElementById('reticle').style.display = viewMode === 'front' ? 'none' : '';
+    showToast(VIEW_LABELS[viewMode], false);
   }
 
   function updateAshModel(t) {
@@ -2028,7 +2062,7 @@
 
   function applySheetArt() {
     for (const npc of npcs) {
-      const key = npc.def.kind === 'bear' ? 'cloudy' : npc.def.kind === 'guide' ? 'einstein' : NPC_SPRITES[npc.def.name] || 'techCustomer';
+      const key = npc.def.sprite || (npc.def.kind === 'bear' ? 'cloudy' : npc.def.kind === 'guide' ? 'einstein' : NPC_SPRITES[npc.def.name] || 'techCustomer');
       const h = npc.def.kind === 'bear' ? 1.6 : 1.9;
       npc.group.children.forEach((c) => { if (c !== npc.tag) c.visible = false; });
       npc.cutout = makeCutout(sheetArt[key], h);
@@ -2111,7 +2145,7 @@
       const bob = npc.walking ? Math.abs(Math.sin(t * 8 + npc.phase)) * 0.09 : Math.sin(t * 2 + npc.phase) * 0.012;
       npc.cutout.position.y = bob;
       npc.cutout.rotation.z = npc.walking ? Math.sin(t * 8 + npc.phase) * 0.06 : 0;
-      npc.crystal.visible = !npc.qualified;
+      npc.crystal.visible = !npc.qualified && !npc.def.team;
       npc.crystal.position.y = npc.cutout.scale.y + 0.85 + Math.sin(t * 2.4 + npc.phase) * 0.08;
       npc.coinTimer = Math.max(0, npc.coinTimer - dt);
       npc.coin.visible = npc.coinTimer > 0;
@@ -2129,17 +2163,20 @@
     const m = ashSprite.mesh;
     m.visible = thirdPerson;
     if (!thirdPerson) return;
-    const fwd = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
-    const strafe = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
-    const a = fwd || strafe ? Math.atan2(strafe, fwd) : 0;
-    const abs = Math.abs(a);
-    const view = abs < 0.4 ? 'ashBack' : abs < 2.0 ? 'ashSide' : abs < 2.8 ? 'ashQuarter' : 'ashFront';
+    const moving = player.movingNow;
+    const hx = moving ? player.headX : -Math.sin(player.yaw);
+    const hz = moving ? player.headZ : -Math.cos(player.yaw);
+    const cx = camera.position.x - player.x;
+    const cz = camera.position.z - player.z;
+    // 0 = Ash faces the camera, ±π = facing away; sign says which way she turns on screen.
+    const a = Math.atan2(hx * cz - hz * cx, hx * cx + hz * cz);
+    const abs = Math.PI - Math.abs(a);
+    const view = abs < 0.5 ? 'ashBack' : abs < 2.0 ? 'ashSide' : abs < 2.7 ? 'ashQuarter' : 'ashFront';
     const tex = ashSprite.textures[view];
     if (m.material.map !== tex) {
       m.material.map = tex;
       m.userData.aspect = tex.image.width / tex.image.height;
     }
-    const moving = fwd || strafe;
     const flip = a < 0 ? -1 : 1;
     m.position.set(player.x, player.y + (moving && player.onGround ? Math.abs(Math.sin(clock.elapsedTime * (player.sprint ? 13 : 9))) * 0.08 : 0), player.z);
     m.scale.set(1.9 * m.userData.aspect * flip, 1.9, 1);
@@ -2333,6 +2370,12 @@
     let lastY = 0;
     let dragDistance = 0;
 
+    canvas.addEventListener('wheel', (e) => {
+      if (state !== 'playing' || !thirdPerson) return;
+      e.preventDefault();
+      camZoomTarget = Math.max(2.5, Math.min(14, camZoomTarget * (e.deltaY > 0 ? 1.12 : 1 / 1.12)));
+    }, { passive: false });
+
     canvas.addEventListener('pointerdown', (e) => {
       if (state !== 'playing') return;
       if (pointerLocked) {
@@ -2466,6 +2509,7 @@
     if (back) mz += 1;
     if (left) mx -= 1;
     if (right) mx += 1;
+    if (viewMode === 'front') mx = -mx;
     const len = Math.hypot(mx, mz) || 1;
     mx /= len;
     mz /= len;
@@ -2502,7 +2546,13 @@
     const startZ = player.z;
     tryStep('x', dx);
     tryStep('z', dz);
-    if (player.onGround && state === 'playing') countSteps(Math.hypot(player.x - startX, player.z - startZ));
+    const moved = Math.hypot(player.x - startX, player.z - startZ);
+    if (moved > 0.001) {
+      player.headX = (player.x - startX) / moved;
+      player.headZ = (player.z - startZ) / moved;
+    }
+    player.movingNow = moved > 0.001;
+    if (player.onGround && state === 'playing') countSteps(moved);
     let box;
 
     player.y += player.vy * dt;
@@ -2534,11 +2584,25 @@
   function updateCamera() {
     const eyeY = player.y + player.height - 0.15;
     camera.rotation.order = 'YXZ';
+    camZoom += (camZoomTarget - camZoom) * 0.12;
+    if (viewMode === 'front') {
+      const elev = Math.max(-0.15, Math.min(1.2, 0.22 - player.pitch));
+      const fx = -Math.sin(player.yaw);
+      const fz = -Math.cos(player.yaw);
+      const target = new THREE.Vector3(player.x, player.y + 1.15, player.z);
+      camera.position.set(
+        target.x + fx * Math.cos(elev) * camZoom,
+        target.y + Math.sin(elev) * camZoom,
+        target.z + fz * Math.cos(elev) * camZoom,
+      );
+      camera.lookAt(target);
+      return;
+    }
     if (thirdPerson) {
       const cp = Math.cos(player.pitch);
       const dir = new THREE.Vector3(-Math.sin(player.yaw) * cp, Math.sin(player.pitch), -Math.cos(player.yaw) * cp);
       const head = new THREE.Vector3(player.x, eyeY, player.z);
-      camera.position.copy(head).addScaledVector(dir, -3.6).add(new THREE.Vector3(0, 0.5, 0));
+      camera.position.copy(head).addScaledVector(dir, -camZoom).add(new THREE.Vector3(0, 0.5, 0));
       camera.lookAt(head.x + dir.x, head.y + dir.y * 0.5, head.z + dir.z);
       return;
     }
