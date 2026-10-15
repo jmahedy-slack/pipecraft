@@ -120,6 +120,52 @@
       background: rgba(16, 35, 71, 0.92); border: 2px solid var(--success-green); color: var(--success-green);
     }
     #score-toast.hidden { display: none; }
+
+    #slack-board {
+      top: 118px; right: 12px; width: 232px; padding: 0; overflow: hidden;
+      background: rgba(26, 29, 33, 0.94); border-color: rgba(255, 255, 255, 0.14);
+      font-family: "Lato", "Segoe UI", system-ui, sans-serif;
+    }
+    #slack-board.hidden { display: none; }
+    .sb-head {
+      display: flex; align-items: center; gap: 6px; padding: 6px 9px;
+      background: #3f0e40; color: #fff; font-weight: 800; font-size: 0.78rem;
+    }
+    .sb-head .sb-hash { color: #cfc3cf; font-weight: 400; }
+    .sb-head .sb-live { margin-left: auto; font-size: 0.6rem; font-weight: 700; color: #2bac76; letter-spacing: 0.08em; }
+    .sb-rows { padding: 4px 6px 2px; }
+    .sb-row {
+      display: grid; grid-template-columns: 16px 20px 1fr auto; align-items: center; gap: 6px;
+      padding: 2px 4px; border-radius: 4px; font-size: 0.72rem; color: #d1d2d3;
+      transition: background 0.4s;
+    }
+    .sb-row.me { background: rgba(18, 100, 163, 0.45); color: #fff; font-weight: 700; }
+    .sb-row.bump { background: rgba(43, 172, 118, 0.55); }
+    .sb-rank { color: #9a9b9c; font-size: 0.65rem; text-align: right; }
+    .sb-ava { width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center; font-size: 0.55rem; font-weight: 800; color: #fff; }
+    .sb-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .sb-pts { font-variant-numeric: tabular-nums; color: var(--deal-gold); font-weight: 700; }
+    .sb-feed { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 5px 9px 7px; }
+    .sb-msg { font-size: 0.68rem; color: #d1d2d3; line-height: 1.35; margin-top: 3px; }
+    .sb-msg b { color: #fff; }
+    .sb-msg .sb-app { font-size: 0.55rem; background: rgba(255, 255, 255, 0.12); color: #c9c9c9; padding: 0 3px; border-radius: 2px; margin-left: 3px; font-weight: 700; }
+    .sb-msg .sb-time { color: #9a9b9c; font-size: 0.58rem; margin-left: 4px; }
+    @media (max-width: 640px) { #slack-board { top: 108px; width: 190px; } .sb-feed { display: none; } }
+
+    #opp-unlock {
+      position: absolute; top: 11%; left: 50%; transform: translate(-50%, 0) scale(0.6); opacity: 0;
+      min-width: 280px; max-width: calc(100% - 40px); padding: 0.9rem 1.4rem; text-align: center;
+      background: linear-gradient(160deg, rgba(63, 14, 64, 0.97), rgba(16, 35, 71, 0.97));
+      border: 2px solid var(--deal-gold); border-radius: 10px;
+      box-shadow: 0 0 32px rgba(255, 200, 87, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5);
+      transition: transform 0.35s cubic-bezier(.2, 1.6, .4, 1), opacity 0.25s; pointer-events: none;
+    }
+    #opp-unlock.show { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    .ou-kicker { font-size: 0.72rem; letter-spacing: 0.22em; color: #2bac76; font-weight: 800; }
+    .ou-title { font-size: 1.35rem; font-weight: 900; color: var(--deal-gold); margin: 0.15rem 0; text-shadow: 0 0 12px rgba(255, 200, 87, 0.6); }
+    .ou-name { font-size: 0.9rem; color: #fff; font-weight: 700; }
+    .ou-meta { font-size: 0.75rem; color: #cde4ff; margin-top: 0.3rem; }
+    .ou-pts { display: inline-block; margin-top: 0.45rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--deal-gold); color: #102347; font-weight: 900; }
     #tool-hud { bottom: 12px; left: 12px; }
     #minimap-hud {
       bottom: 12px; right: 12px; width: 140px; height: 140px;
@@ -295,6 +341,7 @@
         <button class="key" data-code="KeyE">E <small>Scan</small></button>
         <button class="key" data-code="Tab">Tab <small>Map</small></button>
         <button class="key" data-code="KeyV">V <small>View</small></button>
+        <button class="key" data-code="KeyB">B <small>Board</small></button>
         <button class="key" data-code="Escape">Esc <small>Pause</small></button>
       </div>
     </div>
@@ -305,9 +352,21 @@
       <div class="score-label">Score</div>
       <div id="score-value" class="score-value">0</div>
       <div class="score-sub">Pipeline £<span id="pipeline-value">0</span></div>
-      <div class="score-sub">Leads <span id="leads-value">0</span> · Deals 0 · Streak <span id="streak-value">0</span></div>
+      <div class="score-sub">Leads <span id="leads-value">0</span> · Opps <span id="deals-value">0</span> · Streak ×<span id="streak-value">0</span></div>
+    </div>
+    <div id="slack-board" class="hud-block">
+      <div class="sb-head"><span><span class="sb-hash">#</span> pipeline-scoreboard</span><span class="sb-live">● LIVE</span></div>
+      <div id="sb-rows" class="sb-rows"></div>
+      <div id="sb-feed" class="sb-feed"></div>
     </div>
     <div id="score-toast" class="hidden"></div>
+    <div id="opp-unlock">
+      <div class="ou-kicker">🔓 NEW OPPORTUNITY UNLOCKED</div>
+      <div id="ou-title" class="ou-title"></div>
+      <div id="ou-name" class="ou-name"></div>
+      <div id="ou-meta" class="ou-meta"></div>
+      <div id="ou-pts" class="ou-pts"></div>
+    </div>
     <div id="tool-hud" class="hud-block">
       Cloud Scanner ready<br />
       <span style="color:var(--scanner-cyan);">E or click to scan attendees</span>

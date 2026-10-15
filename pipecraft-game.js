@@ -858,14 +858,83 @@
   const SAVE_KEY = 'pipecraft-save';
   let sessionStarted = false;
 
-  const SCORE = { qualify: 100, scanRange: 4.5, scanCone: 0.5 };
-  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0 };
+  const SCORE = {
+    qualify: 100,
+    streakStep: 25,
+    streakCap: 10,
+    streakWindow: 45,
+    leadsPerOpp: 3,
+    oppBase: 500,
+    oppStep: 250,
+    scanRange: 4.5,
+    scanCone: 0.5,
+  };
+  const OPPORTUNITY_NAMES = [
+    'Slack Enterprise Grid',
+    'Agentforce in Slack',
+    'Slack AI Add-on',
+    'Slack Connect Expansion',
+    'Workflow Builder Automation',
+    'Salesforce Channels Rollout',
+    'Huddles & Clips Adoption',
+    'Canvas + Lists Transformation',
+  ];
+  const RIVALS = [
+    { name: 'Niamh May', score: 2400, color: '#e01e5a' },
+    { name: 'Zaid Imran', score: 1750, color: '#2eb67d' },
+    { name: 'Daniela Saunders', score: 1200, color: '#ecb22e' },
+    { name: 'Joe Connolly', score: 800, color: '#36c5f0' },
+    { name: 'Nasreen Khan', score: 350, color: '#9b59b6' },
+  ];
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, feed: [] };
   let toastTimer = 0;
+  let unlockTimer = 0;
+  let lastQualifyAt = -Infinity;
 
   function resetProgress() {
-    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0 });
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, feed: [] });
     npcs.forEach((n) => setQualified(n, false));
+    lastQualifyAt = -Infinity;
     updateScoreHud();
+    postToBoard('<b>Pipeline Bot</b><span class="sb-app">APP</span> Ash joined <b>#pipeline-scoreboard</b> 👋', false);
+  }
+
+  function boardStandings() {
+    return [...RIVALS.map((r) => ({ ...r })), { name: 'Ash (you)', score: progress.score, color: '#1264a3', me: true }]
+      .sort((a, b) => b.score - a.score || (a.me ? -1 : 1));
+  }
+
+  function renderBoard(bumpMe = false) {
+    const standings = boardStandings();
+    const myRank = standings.findIndex((s) => s.me);
+    const shown = myRank < 5 ? standings.slice(0, 5) : [...standings.slice(0, 4), standings[myRank]];
+    document.getElementById('sb-rows').innerHTML = shown.map((s) => {
+      const rank = standings.indexOf(s) + 1;
+      const initials = s.name.replace(' (you)', '').split(' ').map((w) => w[0]).join('').slice(0, 2);
+      const medal = ['🥇', '🥈', '🥉'][rank - 1] || rank;
+      return `<div class="sb-row${s.me ? ' me' : ''}${s.me && bumpMe ? ' bump' : ''}">` +
+        `<span class="sb-rank">${medal}</span><span class="sb-ava" style="background:${s.color}">${initials}</span>` +
+        `<span class="sb-name">${s.name}</span><span class="sb-pts">${s.score.toLocaleString('en-GB')}</span></div>`;
+    }).join('');
+    if (bumpMe) setTimeout(() => document.querySelector('.sb-row.me')?.classList.remove('bump'), 900);
+    return myRank + 1;
+  }
+
+  function postToBoard(html, persist = true) {
+    const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const entry = `${html}<span class="sb-time">${time}</span>`;
+    if (persist) progress.feed = [entry, ...progress.feed].slice(0, 3);
+    const items = persist ? progress.feed : [entry, ...progress.feed].slice(0, 3);
+    document.getElementById('sb-feed').innerHTML = items.map((m) => `<div class="sb-msg">${m}</div>`).join('');
+  }
+
+  function showOpportunityUnlock(opp) {
+    document.getElementById('ou-title').textContent = opp.title;
+    document.getElementById('ou-name').textContent = `${opp.account} · ${opp.role}`;
+    document.getElementById('ou-meta').textContent = `Opportunity #${opp.number} · £${opp.value.toLocaleString('en-GB')} pipeline`;
+    document.getElementById('ou-pts').textContent = `+${opp.bonus.toLocaleString('en-GB')} pts`;
+    document.getElementById('opp-unlock').classList.add('show');
+    unlockTimer = 3.2;
   }
 
   function setQualified(npc, qualified) {
@@ -878,6 +947,8 @@
     document.getElementById('pipeline-value').textContent = progress.pipeline.toLocaleString('en-GB');
     document.getElementById('leads-value').textContent = progress.leads;
     document.getElementById('streak-value').textContent = progress.streak;
+    document.getElementById('deals-value').textContent = progress.opps;
+    renderBoard();
   }
 
   function showToast(text, good = true) {
@@ -914,13 +985,44 @@
       showToast(`${best.def.name} is already qualified`, false);
       return;
     }
+    const now = clock.elapsedTime;
+    const rankBefore = boardStandings().findIndex((s) => s.me);
+    progress.streak = now - lastQualifyAt <= SCORE.streakWindow ? progress.streak + 1 : 1;
+    lastQualifyAt = now;
+    const points = SCORE.qualify
+      + SCORE.streakStep * Math.min(progress.streak - 1, SCORE.streakCap)
+      + Math.round(best.dealValue / 1000);
     setQualified(best, true);
     progress.leads += 1;
-    progress.streak += 1;
-    progress.score += SCORE.qualify;
+    progress.score += points;
     progress.pipeline += best.dealValue;
+    showToast(`LEAD QUALIFIED! ${best.def.name} · +${points}${progress.streak > 1 ? ` (streak ×${progress.streak})` : ''}`);
+    postToBoard(`<b>Ash</b> qualified <b>${best.def.name}</b> (${best.def.role}) · +${points} 🎯`);
+
+    if (progress.leads % SCORE.leadsPerOpp === 0) {
+      progress.opps += 1;
+      const bonus = SCORE.oppBase + SCORE.oppStep * (progress.opps - 1);
+      const value = best.dealValue * 4;
+      progress.score += bonus;
+      progress.pipeline += value;
+      const opp = {
+        number: progress.opps,
+        title: OPPORTUNITY_NAMES[(progress.opps - 1) % OPPORTUNITY_NAMES.length],
+        account: best.def.name,
+        role: best.def.role,
+        value,
+        bonus,
+      };
+      showOpportunityUnlock(opp);
+      postToBoard(`<b>Pipeline Bot</b><span class="sb-app">APP</span> 🔓 New opportunity unlocked: <b>${opp.title}</b> · £${value.toLocaleString('en-GB')} · +${bonus} 🚀`);
+    }
+
     updateScoreHud();
-    showToast(`LEAD QUALIFIED! ${best.def.name} · +${SCORE.qualify}`);
+    const rankAfter = renderBoard(true) - 1;
+    if (rankAfter < rankBefore) {
+      const passed = boardStandings()[rankAfter + 1];
+      postToBoard(`<b>Pipeline Bot</b><span class="sb-app">APP</span> 🏆 Ash overtook <b>${passed.name}</b> · now #${rankAfter + 1}`);
+    }
     saveProgress();
   }
 
@@ -1840,6 +1942,7 @@
         if (npc) setQualified(npc, true);
       });
       updateScoreHud();
+      postToBoard('<b>Pipeline Bot</b><span class="sb-app">APP</span> Welcome back, Ash — your pipeline is saved 💾', false);
       sessionStarted = true;
     }
     state = 'playing';
@@ -1888,6 +1991,7 @@
     if (code === 'Tab' && state === 'playing') pauseGame();
     if (code === 'KeyE' && state === 'playing') tryScan();
     if (code === 'KeyV' && state === 'playing') toggleView();
+    if (code === 'KeyB' && state === 'playing') document.getElementById('slack-board').classList.toggle('hidden');
   }
 
   function handleKeyUp(code) {
@@ -2210,6 +2314,10 @@
         toastTimer -= dt;
         if (toastTimer <= 0) document.getElementById('score-toast').classList.add('hidden');
       }
+      if (unlockTimer > 0) {
+        unlockTimer -= dt;
+        if (unlockTimer <= 0) document.getElementById('opp-unlock').classList.remove('show');
+      }
       if (tutorialTimer > 0) {
         tutorialTimer -= dt;
         if (tutorialTimer <= 0) {
@@ -2221,7 +2329,9 @@
     renderer.render(scene, camera);
   }
 
-  window.__pipecraft = { player, npcs, lookBy, toggleView, getState: () => state };
+  if (window.innerWidth < 700) document.getElementById('slack-board').classList.add('hidden');
+
+  window.__pipecraft = { player, npcs, lookBy, toggleView, scan: tryScan, getState: () => state };
 
   if (!initWebGL()) {
     console.error('WebGL init failed');
