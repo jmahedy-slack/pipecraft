@@ -4,6 +4,7 @@
   "description": "PIPECRAFT — BUILDS PIPELINE: A World Tour Adventure",
   "type": "module",
   "scripts": {
+    "start": "node server.js",
     "build:three": "node scripts/build-three.js",
     "bundle:homepage": "node scripts/bundle-homepage.js",
     "sync:preview": "node scripts/sync-preview.js"
