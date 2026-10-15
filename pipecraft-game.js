@@ -288,11 +288,78 @@
   const SAVE_KEY = 'pipecraft-save';
   let sessionStarted = false;
 
+  const SCORE = { qualify: 100, scanRange: 4.5, scanCone: 0.5 };
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0 };
+  let toastTimer = 0;
+
+  function resetProgress() {
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0 });
+    npcs.forEach((n) => setQualified(n, false));
+    updateScoreHud();
+  }
+
+  function setQualified(npc, qualified) {
+    npc.qualified = qualified;
+    npc.tag.material.color.set(qualified ? PALETTE.successGreen : 0xffffff);
+  }
+
+  function updateScoreHud() {
+    document.getElementById('score-value').textContent = progress.score.toLocaleString('en-GB');
+    document.getElementById('pipeline-value').textContent = progress.pipeline.toLocaleString('en-GB');
+    document.getElementById('leads-value').textContent = progress.leads;
+    document.getElementById('streak-value').textContent = progress.streak;
+  }
+
+  function showToast(text, good = true) {
+    const el = document.getElementById('score-toast');
+    el.textContent = text;
+    el.style.borderColor = good ? '' : '#8eb8dc';
+    el.style.color = good ? '' : '#cde4ff';
+    el.classList.remove('hidden');
+    toastTimer = 1.6;
+  }
+
+  /** Scan the closest unqualified attendee in range and roughly in front of Ash. */
+  function tryScan() {
+    const fx = -Math.sin(player.yaw);
+    const fz = -Math.cos(player.yaw);
+    let best = null;
+    let bestDist = Infinity;
+    for (const npc of npcs) {
+      const dx = npc.group.position.x - player.x;
+      const dz = npc.group.position.z - player.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > SCORE.scanRange || dist < 0.01) continue;
+      const angle = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / dist)));
+      if (angle < SCORE.scanCone && dist < bestDist) {
+        best = npc;
+        bestDist = dist;
+      }
+    }
+    if (!best) {
+      showToast('No attendee in scanner range', false);
+      return;
+    }
+    if (best.qualified) {
+      showToast(`${best.def.name} is already qualified`, false);
+      return;
+    }
+    setQualified(best, true);
+    progress.leads += 1;
+    progress.streak += 1;
+    progress.score += SCORE.qualify;
+    progress.pipeline += best.dealValue;
+    updateScoreHud();
+    showToast(`LEAD QUALIFIED! ${best.def.name} · +${SCORE.qualify}`);
+    saveProgress();
+  }
+
   function saveProgress() {
     if (!sessionStarted) return;
     try {
       const { x, y, z, yaw, pitch } = player;
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId }));
+      const qualified = npcs.filter((n) => n.qualified).map((n) => n.index);
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId, progress, qualified }));
     } catch (_) { /* storage blocked in sandboxed previews */ }
   }
 
@@ -328,6 +395,8 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(PALETTE.arenaNavy);
     renderer.shadowMap.enabled = true;
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.style.outline = 'none';
     root.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
@@ -680,7 +749,9 @@
       built.group.rotation.y = Math.random() * Math.PI * 2;
       scene.add(built.group);
       npcs.push({
-        def, ...built,
+        def, ...built, tag, index: i,
+        qualified: false,
+        dealValue: [25000, 40000, 60000, 85000][i % 4],
         home: { x: hx + 0.5, z: hz + 0.5 },
         target: null,
         wait: 1 + Math.random() * 3,
@@ -851,6 +922,7 @@
     tutorialTimer = 14;
     document.getElementById('tutorial-toast').classList.remove('hidden');
     respawnPlayer(true);
+    resetProgress();
     requestPointerLock();
   }
 
@@ -863,6 +935,13 @@
       }
       respawnPlayer(true);
       Object.assign(player, { x: saved.x, y: saved.y, z: saved.z, yaw: saved.yaw, pitch: saved.pitch });
+      resetProgress();
+      if (saved.progress) Object.assign(progress, saved.progress);
+      (saved.qualified || []).forEach((i) => {
+        const npc = npcs.find((n) => n.index === i);
+        if (npc) setQualified(npc, true);
+      });
+      updateScoreHud();
       sessionStarted = true;
     }
     state = 'playing';
@@ -896,22 +975,49 @@
     }
   }
 
+  function setKeyButtons(code, down) {
+    const alias = code === 'ShiftRight' ? 'ShiftLeft' : code;
+    document.querySelectorAll(`#controls-hud .key[data-code="${alias}"]`).forEach((b) => b.classList.toggle('down', down));
+  }
+
+  function handleKeyDown(code) {
+    keys[code] = true;
+    setKeyButtons(code, true);
+    if (code === 'Escape') {
+      if (state === 'playing') pauseGame();
+      else if (state === 'paused') resumeGame();
+    }
+    if (code === 'Tab' && state === 'playing') pauseGame();
+    if (code === 'KeyE' && state === 'playing') tryScan();
+  }
+
+  function handleKeyUp(code) {
+    keys[code] = false;
+    setKeyButtons(code, false);
+  }
+
   function setupInput(canvas) {
     document.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-      if (state === 'playing' && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
-      if (e.code === 'Escape') {
-        if (state === 'playing') pauseGame();
-        else if (state === 'paused') resumeGame();
-        e.preventDefault();
-      }
-      if (e.code === 'Tab' && state === 'playing') {
-        e.preventDefault();
-        pauseGame();
-      }
+      if (e.repeat) return;
+      if (state === 'playing' && (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab')) e.preventDefault();
+      if (e.code === 'Escape') e.preventDefault();
+      handleKeyDown(e.code);
     });
-    document.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
+    document.addEventListener('keyup', (e) => handleKeyUp(e.code));
+
+    // On-screen keys: press-and-hold works like the keyboard (needed in embedded previews).
+    document.querySelectorAll('#controls-hud .key').forEach((btn) => {
+      const code = btn.dataset.code;
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        btn.setPointerCapture(e.pointerId);
+        handleKeyDown(code);
+      });
+      const release = () => { if (keys[code]) handleKeyUp(code); };
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('lostpointercapture', release);
     });
 
     // Pointer lock is often blocked inside embedded previews (e.g. Slack tabs),
@@ -919,15 +1025,24 @@
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let dragDistance = 0;
 
     canvas.addEventListener('pointerdown', (e) => {
       if (state !== 'playing') return;
+      if (pointerLocked) {
+        tryScan();
+        return;
+      }
       dragging = true;
+      dragDistance = 0;
       lastX = e.clientX;
       lastY = e.clientY;
-      if (!pointerLocked) requestPointerLock();
+      requestPointerLock();
     });
-    window.addEventListener('pointerup', () => { dragging = false; });
+    window.addEventListener('pointerup', () => {
+      if (dragging && dragDistance < 4 && state === 'playing') tryScan();
+      dragging = false;
+    });
 
     document.addEventListener('pointermove', (e) => {
       if (state !== 'playing') return;
@@ -939,6 +1054,7 @@
       } else if (dragging) {
         dx = e.clientX - lastX;
         dy = e.clientY - lastY;
+        dragDistance += Math.abs(dx) + Math.abs(dy);
         lastX = e.clientX;
         lastY = e.clientY;
       } else {
@@ -954,6 +1070,7 @@
     document.addEventListener('pointerlockerror', updateLookHint);
 
     window.addEventListener('blur', () => {
+      Object.keys(keys).forEach((k) => handleKeyUp(k));
       if (pauseOnBlur && state === 'playing') pauseGame();
     });
   }
@@ -971,6 +1088,7 @@
   }
 
   function requestPointerLock() {
+    renderer.domElement.focus({ preventScroll: true });
     try {
       const req = renderer.domElement.requestPointerLock();
       if (req && typeof req.catch === 'function') req.catch(updateLookHint);
@@ -1058,14 +1176,25 @@
       player.onGround = false;
     }
 
-    // Axis-separated collision
-    player.x += dx;
-    let box = playerAABB();
-    if (collidesAABB(box)) player.x -= dx;
-
-    player.z += dz;
-    box = playerAABB();
-    if (collidesAABB(box)) player.z -= dz;
+    // Axis-separated collision; 1-block ledges are climbed automatically.
+    const tryStep = (axis, delta) => {
+      player[axis] += delta;
+      if (!collidesAABB(playerAABB())) return;
+      const canStep = player.onGround || player.vy <= 0;
+      if (canStep) {
+        const oldY = player.y;
+        player.y = Math.floor(player.y + 1.01);
+        if (!collidesAABB(playerAABB())) {
+          player.vy = 0;
+          return;
+        }
+        player.y = oldY;
+      }
+      player[axis] -= delta;
+    };
+    tryStep('x', dx);
+    tryStep('z', dz);
+    let box;
 
     player.y += player.vy * dt;
     box = playerAABB();
@@ -1166,6 +1295,10 @@
       updateScannerPulse(clock.elapsedTime);
       drawMinimap();
 
+      if (toastTimer > 0) {
+        toastTimer -= dt;
+        if (toastTimer <= 0) document.getElementById('score-toast').classList.add('hidden');
+      }
       if (tutorialTimer > 0) {
         tutorialTimer -= dt;
         if (tutorialTimer <= 0) {

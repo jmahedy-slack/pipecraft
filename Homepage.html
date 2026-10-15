@@ -88,8 +88,38 @@
       background: var(--hud-bg); border: 1px solid rgba(22, 139, 255, 0.45);
       border-radius: 8px; font-size: 0.78rem; line-height: 1.45;
     }
-    #mission-hud { top: 12px; left: 12px; max-width: 240px; }
-    #pipeline-hud { top: 12px; right: 12px; text-align: right; }
+    #mission-hud { bottom: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 340px); text-align: center; }
+    @media (max-width: 640px) { #tool-hud { display: none; } #mission-hud { max-width: calc(100% - 180px); left: 12px; transform: none; text-align: left; } #minimap-hud { width: 110px; height: 110px; } }
+    #pipeline-hud { top: 12px; right: 12px; text-align: right; min-width: 150px; }
+    .score-label { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: #8eb8dc; }
+    .score-value { font-size: 1.7rem; font-weight: 800; color: var(--deal-gold); line-height: 1.1; text-shadow: 0 0 10px rgba(255, 200, 87, 0.45); }
+    .score-sub { font-size: 0.72rem; color: #cde4ff; }
+
+    #controls-hud { top: 12px; left: 12px; pointer-events: auto; padding: 0.45rem 0.55rem; user-select: none; }
+    .ctl-title { font-size: 0.72rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .ctl-title span { font-weight: 400; color: #8eb8dc; font-size: 0.62rem; margin-left: 0.25rem; }
+    .ctl-grid { display: flex; gap: 0.7rem; }
+    .ctl-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .ctl-row { display: flex; gap: 2px; justify-content: center; }
+    .ctl-actions { margin-top: 4px; justify-content: flex-start; }
+    .ctl-gap { width: 26px; }
+    .ctl-label { font-size: 0.6rem; color: #8eb8dc; text-transform: uppercase; letter-spacing: 0.08em; }
+    .key {
+      min-width: 26px; height: 24px; padding: 0 5px; cursor: pointer; touch-action: none;
+      background: #1c3563; color: #e8f4ff; font: 700 0.72rem "Segoe UI", system-ui, sans-serif;
+      border: 1px solid rgba(22, 139, 255, 0.6); border-bottom-width: 3px; border-radius: 4px;
+    }
+    .key small { font-weight: 400; color: #9fc4e8; font-size: 0.6rem; margin-left: 2px; }
+    .key.wide { min-width: 76px; }
+    .key.down { background: var(--scanner-cyan); color: var(--arena-navy); border-bottom-width: 1px; transform: translateY(2px); }
+    .key.down small { color: var(--arena-navy); }
+
+    #score-toast {
+      position: absolute; top: 34%; left: 50%; transform: translateX(-50%);
+      padding: 0.4rem 1rem; border-radius: 6px; font-weight: 800; letter-spacing: 0.05em;
+      background: rgba(16, 35, 71, 0.92); border: 2px solid var(--success-green); color: var(--success-green);
+    }
+    #score-toast.hidden { display: none; }
     #tool-hud { bottom: 12px; left: 12px; }
     #minimap-hud {
       bottom: 12px; right: 12px; width: 140px; height: 140px;
@@ -243,17 +273,43 @@
   </div>
 
   <div id="hud" class="hidden">
+    <div id="controls-hud" class="hud-block" aria-label="Controls (click and hold to use)">
+      <div class="ctl-title">Controls <span>click &amp; hold or use your keyboard</span></div>
+      <div class="ctl-grid">
+        <div class="ctl-group">
+          <div class="ctl-row"><span class="ctl-gap"></span><button class="key" data-code="KeyW">W</button><span class="ctl-gap"></span></div>
+          <div class="ctl-row"><button class="key" data-code="KeyA">A</button><button class="key" data-code="KeyS">S</button><button class="key" data-code="KeyD">D</button></div>
+          <div class="ctl-label">Move</div>
+        </div>
+        <div class="ctl-group">
+          <div class="ctl-row"><span class="ctl-gap"></span><button class="key" data-code="ArrowUp">↑</button><span class="ctl-gap"></span></div>
+          <div class="ctl-row"><button class="key" data-code="ArrowLeft">←</button><button class="key" data-code="ArrowDown">↓</button><button class="key" data-code="ArrowRight">→</button></div>
+          <div class="ctl-label">Look</div>
+        </div>
+      </div>
+      <div class="ctl-row ctl-actions">
+        <button class="key wide" data-code="Space">Space <small>Jump</small></button>
+        <button class="key wide" data-code="ShiftLeft">Shift <small>Sprint</small></button>
+      </div>
+      <div class="ctl-row ctl-actions">
+        <button class="key" data-code="KeyE">E <small>Scan</small></button>
+        <button class="key" data-code="Tab">Tab <small>Map</small></button>
+        <button class="key" data-code="Escape">Esc <small>Pause</small></button>
+      </div>
+    </div>
     <div id="mission-hud" class="hud-block">
-      <strong>Mission</strong><br />
-      <span id="mission-text">Explore Arrivals Boulevard</span>
+      <strong>Mission</strong> · <span id="mission-text">Explore Arrivals Boulevard</span>
     </div>
     <div id="pipeline-hud" class="hud-block">
-      Pipeline <span id="pipeline-value">0</span><br />
-      <span style="color:#8eb8dc;">Deals 0 · Streak 0</span>
+      <div class="score-label">Score</div>
+      <div id="score-value" class="score-value">0</div>
+      <div class="score-sub">Pipeline £<span id="pipeline-value">0</span></div>
+      <div class="score-sub">Leads <span id="leads-value">0</span> · Deals 0 · Streak <span id="streak-value">0</span></div>
     </div>
+    <div id="score-toast" class="hidden"></div>
     <div id="tool-hud" class="hud-block">
       Cloud Scanner ready<br />
-      <span style="color:var(--scanner-cyan);">L-click scan · E interact</span>
+      <span style="color:var(--scanner-cyan);">E or click to scan attendees</span>
     </div>
     <div id="minimap-hud" class="hud-block">
       <canvas id="minimap-canvas" width="132" height="132"></canvas>
@@ -565,11 +621,78 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   const SAVE_KEY = 'pipecraft-save';
   let sessionStarted = false;
 
+  const SCORE = { qualify: 100, scanRange: 4.5, scanCone: 0.5 };
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0 };
+  let toastTimer = 0;
+
+  function resetProgress() {
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0 });
+    npcs.forEach((n) => setQualified(n, false));
+    updateScoreHud();
+  }
+
+  function setQualified(npc, qualified) {
+    npc.qualified = qualified;
+    npc.tag.material.color.set(qualified ? PALETTE.successGreen : 0xffffff);
+  }
+
+  function updateScoreHud() {
+    document.getElementById('score-value').textContent = progress.score.toLocaleString('en-GB');
+    document.getElementById('pipeline-value').textContent = progress.pipeline.toLocaleString('en-GB');
+    document.getElementById('leads-value').textContent = progress.leads;
+    document.getElementById('streak-value').textContent = progress.streak;
+  }
+
+  function showToast(text, good = true) {
+    const el = document.getElementById('score-toast');
+    el.textContent = text;
+    el.style.borderColor = good ? '' : '#8eb8dc';
+    el.style.color = good ? '' : '#cde4ff';
+    el.classList.remove('hidden');
+    toastTimer = 1.6;
+  }
+
+  /** Scan the closest unqualified attendee in range and roughly in front of Ash. */
+  function tryScan() {
+    const fx = -Math.sin(player.yaw);
+    const fz = -Math.cos(player.yaw);
+    let best = null;
+    let bestDist = Infinity;
+    for (const npc of npcs) {
+      const dx = npc.group.position.x - player.x;
+      const dz = npc.group.position.z - player.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > SCORE.scanRange || dist < 0.01) continue;
+      const angle = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / dist)));
+      if (angle < SCORE.scanCone && dist < bestDist) {
+        best = npc;
+        bestDist = dist;
+      }
+    }
+    if (!best) {
+      showToast('No attendee in scanner range', false);
+      return;
+    }
+    if (best.qualified) {
+      showToast(`${best.def.name} is already qualified`, false);
+      return;
+    }
+    setQualified(best, true);
+    progress.leads += 1;
+    progress.streak += 1;
+    progress.score += SCORE.qualify;
+    progress.pipeline += best.dealValue;
+    updateScoreHud();
+    showToast(`LEAD QUALIFIED! ${best.def.name} · +${SCORE.qualify}`);
+    saveProgress();
+  }
+
   function saveProgress() {
     if (!sessionStarted) return;
     try {
       const { x, y, z, yaw, pitch } = player;
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId }));
+      const qualified = npcs.filter((n) => n.qualified).map((n) => n.index);
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ x, y, z, yaw, pitch, zone: currentZoneId, progress, qualified }));
     } catch (_) { /* storage blocked in sandboxed previews */ }
   }
 
@@ -605,6 +728,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(PALETTE.arenaNavy);
     renderer.shadowMap.enabled = true;
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.style.outline = 'none';
     root.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
@@ -957,7 +1082,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       built.group.rotation.y = Math.random() * Math.PI * 2;
       scene.add(built.group);
       npcs.push({
-        def, ...built,
+        def, ...built, tag, index: i,
+        qualified: false,
+        dealValue: [25000, 40000, 60000, 85000][i % 4],
         home: { x: hx + 0.5, z: hz + 0.5 },
         target: null,
         wait: 1 + Math.random() * 3,
@@ -1128,6 +1255,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     tutorialTimer = 14;
     document.getElementById('tutorial-toast').classList.remove('hidden');
     respawnPlayer(true);
+    resetProgress();
     requestPointerLock();
   }
 
@@ -1140,6 +1268,13 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       }
       respawnPlayer(true);
       Object.assign(player, { x: saved.x, y: saved.y, z: saved.z, yaw: saved.yaw, pitch: saved.pitch });
+      resetProgress();
+      if (saved.progress) Object.assign(progress, saved.progress);
+      (saved.qualified || []).forEach((i) => {
+        const npc = npcs.find((n) => n.index === i);
+        if (npc) setQualified(npc, true);
+      });
+      updateScoreHud();
       sessionStarted = true;
     }
     state = 'playing';
@@ -1173,22 +1308,49 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
   }
 
+  function setKeyButtons(code, down) {
+    const alias = code === 'ShiftRight' ? 'ShiftLeft' : code;
+    document.querySelectorAll(`#controls-hud .key[data-code="${alias}"]`).forEach((b) => b.classList.toggle('down', down));
+  }
+
+  function handleKeyDown(code) {
+    keys[code] = true;
+    setKeyButtons(code, true);
+    if (code === 'Escape') {
+      if (state === 'playing') pauseGame();
+      else if (state === 'paused') resumeGame();
+    }
+    if (code === 'Tab' && state === 'playing') pauseGame();
+    if (code === 'KeyE' && state === 'playing') tryScan();
+  }
+
+  function handleKeyUp(code) {
+    keys[code] = false;
+    setKeyButtons(code, false);
+  }
+
   function setupInput(canvas) {
     document.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-      if (state === 'playing' && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
-      if (e.code === 'Escape') {
-        if (state === 'playing') pauseGame();
-        else if (state === 'paused') resumeGame();
-        e.preventDefault();
-      }
-      if (e.code === 'Tab' && state === 'playing') {
-        e.preventDefault();
-        pauseGame();
-      }
+      if (e.repeat) return;
+      if (state === 'playing' && (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab')) e.preventDefault();
+      if (e.code === 'Escape') e.preventDefault();
+      handleKeyDown(e.code);
     });
-    document.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
+    document.addEventListener('keyup', (e) => handleKeyUp(e.code));
+
+    // On-screen keys: press-and-hold works like the keyboard (needed in embedded previews).
+    document.querySelectorAll('#controls-hud .key').forEach((btn) => {
+      const code = btn.dataset.code;
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        btn.setPointerCapture(e.pointerId);
+        handleKeyDown(code);
+      });
+      const release = () => { if (keys[code]) handleKeyUp(code); };
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('lostpointercapture', release);
     });
 
     // Pointer lock is often blocked inside embedded previews (e.g. Slack tabs),
@@ -1196,15 +1358,24 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let dragDistance = 0;
 
     canvas.addEventListener('pointerdown', (e) => {
       if (state !== 'playing') return;
+      if (pointerLocked) {
+        tryScan();
+        return;
+      }
       dragging = true;
+      dragDistance = 0;
       lastX = e.clientX;
       lastY = e.clientY;
-      if (!pointerLocked) requestPointerLock();
+      requestPointerLock();
     });
-    window.addEventListener('pointerup', () => { dragging = false; });
+    window.addEventListener('pointerup', () => {
+      if (dragging && dragDistance < 4 && state === 'playing') tryScan();
+      dragging = false;
+    });
 
     document.addEventListener('pointermove', (e) => {
       if (state !== 'playing') return;
@@ -1216,6 +1387,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       } else if (dragging) {
         dx = e.clientX - lastX;
         dy = e.clientY - lastY;
+        dragDistance += Math.abs(dx) + Math.abs(dy);
         lastX = e.clientX;
         lastY = e.clientY;
       } else {
@@ -1231,6 +1403,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     document.addEventListener('pointerlockerror', updateLookHint);
 
     window.addEventListener('blur', () => {
+      Object.keys(keys).forEach((k) => handleKeyUp(k));
       if (pauseOnBlur && state === 'playing') pauseGame();
     });
   }
@@ -1248,6 +1421,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   }
 
   function requestPointerLock() {
+    renderer.domElement.focus({ preventScroll: true });
     try {
       const req = renderer.domElement.requestPointerLock();
       if (req && typeof req.catch === 'function') req.catch(updateLookHint);
@@ -1335,14 +1509,25 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       player.onGround = false;
     }
 
-    // Axis-separated collision
-    player.x += dx;
-    let box = playerAABB();
-    if (collidesAABB(box)) player.x -= dx;
-
-    player.z += dz;
-    box = playerAABB();
-    if (collidesAABB(box)) player.z -= dz;
+    // Axis-separated collision; 1-block ledges are climbed automatically.
+    const tryStep = (axis, delta) => {
+      player[axis] += delta;
+      if (!collidesAABB(playerAABB())) return;
+      const canStep = player.onGround || player.vy <= 0;
+      if (canStep) {
+        const oldY = player.y;
+        player.y = Math.floor(player.y + 1.01);
+        if (!collidesAABB(playerAABB())) {
+          player.vy = 0;
+          return;
+        }
+        player.y = oldY;
+      }
+      player[axis] -= delta;
+    };
+    tryStep('x', dx);
+    tryStep('z', dz);
+    let box;
 
     player.y += player.vy * dt;
     box = playerAABB();
@@ -1443,6 +1628,10 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       updateScannerPulse(clock.elapsedTime);
       drawMinimap();
 
+      if (toastTimer > 0) {
+        toastTimer -= dt;
+        if (toastTimer <= 0) document.getElementById('score-toast').classList.add('hidden');
+      }
       if (tutorialTimer > 0) {
         tutorialTimer -= dt;
         if (tutorialTimer <= 0) {
