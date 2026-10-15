@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PIPECRAFT — BUILDS PIPELINE: A World Tour Adventure</title>
+  <style>
+    :root {
+      --arena-navy: #102347;
+      --world-tour-blue: #168bff;
+      --scanner-cyan: #28d9f2;
+      --portal-purple: #7857ff;
+      --lounge-magenta: #f04bb8;
+      --deal-gold: #ffc857;
+      --success-green: #67dfa4;
+      --hud-bg: rgba(16, 35, 71, 0.82);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--arena-navy);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #e8f4ff;
+    }
+    #game-root { position: fixed; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .overlay {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 30%, rgba(22, 139, 255, 0.25), rgba(16, 35, 71, 0.95));
+      z-index: 20; pointer-events: auto;
+    }
+    .overlay.hidden { display: none; pointer-events: none; }
+
+    .panel {
+      max-width: 520px; width: 92%; padding: 2rem 2.25rem;
+      background: var(--hud-bg); border: 2px solid var(--world-tour-blue);
+      border-radius: 12px; box-shadow: 0 0 40px rgba(40, 217, 242, 0.2);
+      text-align: center;
+    }
+    .panel h1 {
+      font-size: 1.65rem; letter-spacing: 0.04em; color: var(--scanner-cyan);
+      text-shadow: 0 0 12px rgba(40, 217, 242, 0.5);
+    }
+    .panel .subtitle {
+      margin-top: 0.35rem; font-size: 0.95rem; color: #a8cce8;
+    }
+    .panel .tagline {
+      margin: 1rem 0 1.25rem; font-size: 0.85rem; font-style: italic; color: #8eb8dc;
+    }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 0.65rem; justify-content: center; margin-top: 1rem; }
+    button.primary, button.secondary {
+      cursor: pointer; border: none; border-radius: 8px; padding: 0.65rem 1.25rem;
+      font-size: 0.95rem; font-weight: 600; transition: transform 0.12s, filter 0.12s;
+    }
+    button.primary {
+      background: linear-gradient(180deg, var(--world-tour-blue), #0d6fd4);
+      color: #fff;
+    }
+    button.secondary {
+      background: rgba(255,255,255,0.08); color: #cde4ff;
+      border: 1px solid rgba(22, 139, 255, 0.5);
+    }
+    button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .controls-list {
+      text-align: left; font-size: 0.82rem; line-height: 1.65;
+      margin: 1rem 0; padding: 0.75rem 1rem;
+      background: rgba(0,0,0,0.25); border-radius: 8px;
+    }
+    .controls-list kbd {
+      display: inline-block; min-width: 1.6rem; text-align: center;
+      background: rgba(22, 139, 255, 0.35); border-radius: 4px; padding: 0 0.35rem;
+      font-family: inherit; font-size: 0.78rem;
+    }
+
+    label.setting { display: block; margin: 0.75rem 0; font-size: 0.85rem; }
+    label.setting input[type="range"] { width: 100%; margin-top: 0.35rem; }
+    label.setting input[type="checkbox"] { margin-right: 0.4rem; }
+
+    #hud {
+      position: fixed; inset: 0; pointer-events: none; z-index: 10;
+    }
+    #hud.hidden { display: none; }
+    .hud-block {
+      position: absolute; padding: 0.5rem 0.75rem;
+      background: var(--hud-bg); border: 1px solid rgba(22, 139, 255, 0.45);
+      border-radius: 8px; font-size: 0.78rem; line-height: 1.45;
+    }
+    #mission-hud { top: 12px; left: 12px; max-width: 240px; }
+    #pipeline-hud { top: 12px; right: 12px; text-align: right; }
+    #tool-hud { bottom: 12px; left: 12px; }
+    #minimap-hud {
+      bottom: 12px; right: 12px; width: 140px; height: 140px;
+      padding: 4px; background: var(--hud-bg);
+    }
+    #minimap-canvas { width: 100%; height: 100%; border-radius: 4px; }
+
+    #reticle {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.85);
+      border-radius: 2px; box-shadow: 0 0 8px rgba(40, 217, 242, 0.6);
+    }
+    #reticle.interact { border-color: var(--scanner-cyan); width: 22px; height: 22px; }
+
+    #zone-banner {
+      position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
+      padding: 0.4rem 1rem; background: rgba(16, 35, 71, 0.9);
+      border: 1px solid var(--scanner-cyan); border-radius: 6px;
+      font-size: 0.9rem; opacity: 0; transition: opacity 0.4s;
+    }
+    #zone-banner.show { opacity: 1; }
+
+    #tutorial-toast {
+      position: absolute; bottom: 28%; left: 50%; transform: translateX(-50%);
+      max-width: 420px; padding: 0.65rem 1rem; text-align: center;
+      background: rgba(16, 35, 71, 0.92); border: 1px solid var(--deal-gold);
+      border-radius: 8px; font-size: 0.82rem;
+    }
+    #tutorial-toast.hidden { display: none; }
+
+    #click-to-play {
+      position: absolute; bottom: 22%; left: 50%; transform: translateX(-50%);
+      font-size: 0.85rem; color: var(--scanner-cyan); animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+    #webgl-fallback { color: #ffb4b4; }
+  </style>
+</head>
+<body>
+  <div id="game-root"></div>
+
+  <div id="screen-title" class="overlay">
+    <div class="panel">
+      <h1>PIPECRAFT</h1>
+      <div class="subtitle">BUILDS PIPELINE</div>
+      <div class="tagline">A World Tour Adventure — build pipeline like you build a world.</div>
+      <div class="btn-row">
+        <button type="button" class="primary" id="btn-start">Start Adventure</button>
+        <button type="button" class="secondary" id="btn-how">How to Play</button>
+        <button type="button" class="secondary" id="btn-settings">Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-how" class="overlay hidden">
+    <div class="panel">
+      <h1>How to Play</h1>
+      <div class="controls-list">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move · Mouse look · <kbd>Space</kbd> Jump · <kbd>Shift</kbd> Sprint</div>
+        <div><kbd>E</kbd> Interact · <kbd>L-click</kbd> Cloud Scanner · <kbd>Tab</kbd> Map focus · <kbd>Esc</kbd> Pause</div>
+        <div style="margin-top:0.5rem;color:#8eb8dc;">Milestone 1: explore all five zones on the connected map. Pipeline loop arrives in the next update.</div>
+      </div>
+      <button type="button" class="primary" id="btn-how-back">Back</button>
+    </div>
+  </div>
+
+  <div id="screen-settings" class="overlay hidden">
+    <div class="panel">
+      <h1>Settings</h1>
+      <label class="setting">Mouse sensitivity
+        <input type="range" id="setting-sensitivity" min="0.2" max="2.5" step="0.1" value="1" />
+      </label>
+      <label class="setting"><input type="checkbox" id="setting-reduced-flash" /> Reduced flash effects</label>
+      <label class="setting"><input type="checkbox" id="setting-relaxed" /> Relaxed mode (no countdown — for later milestones)</label>
+      <label class="setting"><input type="checkbox" id="setting-sound" checked /> Sound (placeholder)</label>
+      <div class="btn-row">
+        <button type="button" class="primary" id="btn-settings-back">Save &amp; Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="overlay hidden">
+    <div class="panel">
+      <h1>Paused</h1>
+      <div class="btn-row">
+        <button type="button" class="primary" id="btn-resume">Resume</button>
+        <button type="button" class="secondary" id="btn-restart">Restart Zone</button>
+        <button type="button" class="secondary" id="btn-quit">Title Screen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-webgl" class="overlay hidden">
+    <div class="panel">
+      <h1 id="webgl-fallback">WebGL not supported</h1>
+      <p style="margin-top:1rem;font-size:0.9rem;">Pipecraft needs WebGL in Chrome or Edge. Try updating your browser or enabling hardware acceleration.</p>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div id="mission-hud" class="hud-block">
+      <strong>Mission</strong><br />
+      <span id="mission-text">Explore Arrivals Boulevard</span>
+    </div>
+    <div id="pipeline-hud" class="hud-block">
+      Pipeline <span id="pipeline-value">0</span><br />
+      <span style="color:#8eb8dc;">Deals 0 · Streak 0</span>
+    </div>
+    <div id="tool-hud" class="hud-block">
+      Cloud Scanner ready<br />
+      <span style="color:var(--scanner-cyan);">L-click scan · E interact</span>
+    </div>
+    <div id="minimap-hud" class="hud-block">
+      <canvas id="minimap-canvas" width="132" height="132"></canvas>
+    </div>
+    <div id="reticle"></div>
+    <div id="zone-banner"></div>
+    <div id="tutorial-toast">Welcome to World Tour London! WASD to move, mouse to look. Follow the cyan path toward The O2.</div>
+    <div id="click-to-play" class="hidden">Click to capture mouse</div>
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="pipecraft-game.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "pipecraft",
+  "version": "0.1.0",
+  "description": "PIPECRAFT — BUILDS PIPELINE: A World Tour Adventure",
+  "type": "module",
+  "scripts": {
+    "bundle:homepage": "node scripts/bundle-homepage.js",
+    "sync:preview": "node scripts/sync-preview.js"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
