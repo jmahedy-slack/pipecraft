@@ -896,13 +896,17 @@
     { name: 'Joe Connolly', score: 800, color: '#36c5f0' },
     { name: 'Nasreen Khan', score: 350, color: '#9b59b6' },
   ];
-  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, feed: [] };
+  const progress = { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, feed: [] };
+  const STRIDE = 0.75;
+  const STEP_MILESTONE = 1000;
+  let strideDistance = 0;
   let toastTimer = 0;
   let unlockTimer = 0;
   let lastQualifyAt = -Infinity;
 
   function resetProgress() {
-    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, feed: [] });
+    Object.assign(progress, { score: 0, leads: 0, pipeline: 0, streak: 0, opps: 0, steps: 0, feed: [] });
+    strideDistance = 0;
     npcs.forEach((n) => setQualified(n, false));
     lastQualifyAt = -Infinity;
     updateScoreHud();
@@ -958,7 +962,27 @@
     document.getElementById('leads-value').textContent = progress.leads;
     document.getElementById('streak-value').textContent = progress.streak;
     document.getElementById('deals-value').textContent = progress.opps;
+    updateStepsHud();
     renderBoard();
+  }
+
+  function updateStepsHud() {
+    document.getElementById('steps-value').textContent = progress.steps.toLocaleString('en-GB');
+  }
+
+  function countSteps(distance) {
+    strideDistance += distance;
+    if (strideDistance < STRIDE) return;
+    const taken = Math.floor(strideDistance / STRIDE);
+    strideDistance -= taken * STRIDE;
+    const before = progress.steps;
+    progress.steps += taken;
+    updateStepsHud();
+    if (Math.floor(progress.steps / STEP_MILESTONE) > Math.floor(before / STEP_MILESTONE)) {
+      const milestone = Math.floor(progress.steps / STEP_MILESTONE) * STEP_MILESTONE;
+      showToast(`${milestone.toLocaleString('en-GB')} STEPS! Keep networking`);
+      postToBoard(`<b>Pipeline Bot</b><span class="sb-app">APP</span> 👟 Ash has walked <b>${milestone.toLocaleString('en-GB')} steps</b> around World Tour London`);
+    }
   }
 
   function showToast(text, good = true) {
@@ -1898,7 +1922,7 @@
     const n = sw * sh;
     const isBg = (i) => {
       const r = p[i * 4], gr = p[i * 4 + 1], b = p[i * 4 + 2];
-      return b > r + 16 && b >= gr - 6 && r + gr + b < 330;
+      return r < 34 && gr < 66 && b < 100 && b > r + 22 && b >= gr;
     };
     const bg = new Uint8Array(n);
     const stack = [];
@@ -2448,8 +2472,8 @@
 
     const sin = Math.sin(player.yaw);
     const cos = Math.cos(player.yaw);
-    const dx = (mx * cos - mz * sin) * speed * dt;
-    const dz = (mx * sin + mz * cos) * speed * dt;
+    const dx = (mx * cos + mz * sin) * speed * dt;
+    const dz = (mz * cos - mx * sin) * speed * dt;
 
     player.vy -= 24 * dt;
 
@@ -2474,8 +2498,11 @@
       }
       player[axis] -= delta;
     };
+    const startX = player.x;
+    const startZ = player.z;
     tryStep('x', dx);
     tryStep('z', dz);
+    if (player.onGround && state === 'playing') countSteps(Math.hypot(player.x - startX, player.z - startZ));
     let box;
 
     player.y += player.vy * dt;
